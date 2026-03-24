@@ -54,7 +54,8 @@ def cli():
 @cli.command()
 @click.option("--model", "-m", default=None, help="Model to use")
 @click.option("--system", "-s", default=None, help="System prompt")
-def chat(model: str | None, system: str | None):
+@click.option("--prompts", "-p", "prompts_dir", default=None, help="Prompts directory")
+def chat(model: str | None, system: str | None, prompts_dir: str | None):
     """启动交互式 chat 会话"""
     logger.LOG_INFO("Starting Aloha chat session...")
 
@@ -70,7 +71,8 @@ def chat(model: str | None, system: str | None):
         provider=provider,
         workspace=Path("~/.aloha/workspace").expanduser(),
         model=model or provider.default_model,
-        system_prompt=system or "你是一个有帮助的AI助手。",
+        system_prompt=system,  # 如果为 None，将自动从 prompt 文件加载
+        prompts_dir=prompts_dir,
     )
 
     logger.LOG_INFO(f"Agent ready. Type 'quit' or 'exit' to end session.")
@@ -101,7 +103,8 @@ def chat(model: str | None, system: str | None):
 @cli.command()
 @click.argument("message")
 @click.option("--model", "-m", default=None, help="Model to use")
-def say(message: str, model: str | None):
+@click.option("--prompts", "-p", "prompts_dir", default=None, help="Prompts directory")
+def say(message: str, model: str | None, prompts_dir: str | None):
     """发送单条消息并退出"""
     logger.LOG_INFO("Sending message to Aloha...")
 
@@ -115,6 +118,7 @@ def say(message: str, model: str | None):
         provider=provider,
         workspace=Path("~/.aloha/workspace").expanduser(),
         model=model or provider.default_model,
+        prompts_dir=prompts_dir,
     )
 
     async def run_once():

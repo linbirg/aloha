@@ -11,6 +11,7 @@ from aloha.bus.queue import MessageBus, Envelope
 from aloha.providers.base import BaseProvider, Message
 from aloha.providers.base import Response
 from aloha.lib import logger
+from aloha.prompts import PromptLoader
 
 
 class AgentLoop(Agent):
@@ -29,13 +30,26 @@ class AgentLoop(Agent):
         context_window_tokens: int = 65536,
         temperature: float = 0.1,
         system_prompt: str | None = None,
+        prompts_dir: Path | str | None = None,
     ):
-        super().__init__(provider, model, max_iterations, system_prompt)
+        # 构建 system prompt：优先使用传入的值，其次尝试从 prompt 文件加载
+        final_system_prompt = system_prompt
+        # 使用 PromptLoader 加载 prompt 文件
+        if prompts_dir:
+            prompt_loader = PromptLoader([Path(prompts_dir)])
+        else:
+            prompt_loader = PromptLoader()
+
+        if final_system_prompt is None:
+            final_system_prompt = prompt_loader.build_system_prompt()
+
+        super().__init__(provider, model, max_iterations, final_system_prompt)
         self.bus = bus
         self.workspace = Path(workspace)
         self.context_window_tokens = context_window_tokens
         self.temperature = temperature
         self._running = False
+        self._prompt_loader = prompt_loader
 
     async def process(self, user_input: str) -> str:
         """处理单次用户输入"""
