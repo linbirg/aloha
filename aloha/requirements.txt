@@ -1,0 +1,23 @@
+# aloha 项目依赖文件
+# 项目阶段：早期想法验证
+
+# OpenAI 相关依赖
+openai>=1.0.0          # OpenAI 官方 SDK，用于与 GPT 模型交互
+tiktoken>=0.5.0        # Token 计数工具，用于计算 token 使用量
+
+# 基础依赖
+pydantic>=2.0.0        # 数据验证和配置管理
+python-dotenv>=1.0.0   # 环境变量管理，支持从 .env 文件加载配置
+
+# TOML 配置支持
+tomli>=2.0.0           # TOML 配置文件解析（Python 3.11 以下使用）
+
+# YAML 配置支持
+PyYAML>=6.0           # YAML 配置文件解析
+
+# 测试依赖
+pytest>=7.0.0         # 单元测试框架
+pytest-asyncio>=0.21.0  # 异步测试支持
+
+# 命令行支持
+click>=8.0.0         # CLI 框架
