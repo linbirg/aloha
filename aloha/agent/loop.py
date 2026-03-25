@@ -48,17 +48,24 @@ class AgentLoop(Agent):
         self.workspace = Path(workspace)
         self.context_window_tokens = context_window_tokens
         self.temperature = temperature
+        self.thought_logs: list[str] = []  # 思考日志
         self._running = False
         self._prompt_loader = prompt_loader
 
     async def process(self, user_input: str) -> str:
         """处理单次用户输入"""
+        # 清空上次的思考日志
+        self.thought_logs = []
+        
         # 添加用户消息到记忆
         self.session_memory.add_user_message(user_input)
 
         # 构建消息列表
         messages = self._build_messages()
 
+        # 记录 LLM 调用
+        self.thought_logs.append(f"🤖 调用 LLM (model: {self.model})...")
+        
         # 调用 LLM
         tools_schema = self.get_tools_schema()
         response = await self.provider.chat_with_tools(
@@ -67,9 +74,17 @@ class AgentLoop(Agent):
             model=self.model,
         )
 
+        # 记录 LLM 回复
+        self.thought_logs.append(f"💬 LLM 回复: {response.content[:100]}...")
+
         # 处理响应
         result = await self._handle_response(response)
+        
         return result
+    
+    def get_thought_logs(self) -> list[str]:
+        """获取思考日志"""
+        return self.thought_logs.copy()
 
     def _build_messages(self) -> list[Message]:
         """构建消息列表"""
@@ -100,6 +115,10 @@ class AgentLoop(Agent):
         """执行工具调用"""
         tool_name = tool_call.name
         tool_args = tool_call.arguments
+        
+        # 记录工具调用
+        self.thought_logs.append(f"🛠️ 调用工具: {tool_name}")
+        self.thought_logs.append(f"📝 参数: {tool_args}")
 
         # 执行工具
         result = await self.tools.execute_tool(tool_name, **tool_args)
@@ -111,6 +130,9 @@ class AgentLoop(Agent):
                 content = f"Error: {result.get('error', content)}"
         else:
             content = str(result)
+            
+        # 记录工具结果
+        self.thought_logs.append(f"✅ 工具结果: {content[:200]}...")
 
         self.session_memory.add_message(
             role="tool",

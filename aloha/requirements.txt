@@ -21,3 +21,6 @@ pytest-asyncio>=0.21.0  # 异步测试支持
 
 # 命令行支持
 click>=8.0.0         # CLI 框架
+
+# Web UI 支持
+gradio>=4.0.0       # Web UI 框架，用于构建 AI 对话界面
