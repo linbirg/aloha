@@ -9,7 +9,7 @@ from pathlib import Path
 import gradio as gr
 from gradio import ChatMessage
 
-from aloha import AgentLoop
+from aloha import ReactAgent
 from aloha.providers import OpenAIProvider
 from aloha.bus import MessageBus
 from aloha.prompts import PromptLoader
@@ -67,8 +67,8 @@ def create_agent():
     logger.LOG_DEBUG(f"PromptLoader created with {len(prompt_loader.list_available())} prompt files")
 
     # 创建 agent
-    logger.LOG_INFO(f"Creating AgentLoop with model={model}...")
-    agent = AgentLoop(
+    logger.LOG_INFO(f"Creating ReactAgent with model={model}...")
+    agent = ReactAgent(
         bus=bus,
         provider=provider,
         workspace=workspace,

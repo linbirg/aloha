@@ -1,6 +1,7 @@
-"""AgentLoop - Agent 主循环
+"""ReactAgent - Agent REACT 模式
 
 核心处理引擎，负责接收消息、构建上下文、调用 LLM、执行工具。
+基于 REACT (Reasoning + Acting) 模式。
 """
 
 import asyncio
@@ -14,10 +15,10 @@ from aloha.lib import logger
 from aloha.prompts import PromptLoader
 
 
-class AgentLoop(Agent):
-    """Agent 主循环处理器
+class ReactAgent(Agent):
+    """Agent REACT 模式处理器
 
-    基于 nanobot 的 AgentLoop 设计。
+    基于 nanobot 的 ReactAgent 设计，实现推理+行动的 Agent 模式。
     """
 
     def __init__(

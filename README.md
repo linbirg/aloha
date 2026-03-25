@@ -108,14 +108,14 @@ pip install -r requirements.txt
 ### 基本使用
 
 ```python
-from aloha import AgentLoop
+from aloha import ReactAgent
 from aloha.providers import OpenAIProvider
 from aloha.bus import MessageBus
 
 # 初始化
 provider = OpenAIProvider(api_key="your-key", model="gpt-4o-mini")
 bus = MessageBus()
-agent = AgentLoop(bus, provider)
+agent = ReactAgent(bus, provider)
 
 # 运行
 asyncio.run(agent.run())
