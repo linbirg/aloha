@@ -135,8 +135,42 @@ def format_history(history: list) -> list:
 import time
 
 
+import re
+
+
+def parse_thinking_content(response: str) -> tuple[str, str]:
+    """解析 AI 回复中的思考内容和正式反馈
+    
+    支持的格式：
+    - <thinking>...</thinking>
+    - <thought>...</thought>
+    - <think>...</think>（OpenAI o1 风格）
+    
+    Returns:
+        tuple: (思考内容, 正式回复)
+    """
+    # 尝试不同的思考标签格式
+    patterns = [
+        r'<thinking>(.*?)</thinking>',
+        r'<thought>(.*?)</thought>',
+        r'<think>(.*?)</think>',
+    ]
+    
+    thinking_content = ""
+    final_content = response
+    
+    for pattern in patterns:
+        match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
+        if match:
+            thinking_content = match.group(1).strip()
+            final_content = re.sub(pattern, '', response, flags=re.DOTALL | re.IGNORECASE).strip()
+            break
+    
+    return thinking_content, final_content
+
+
 async def chat_fn(message: str, history: list):
-    """ChatInterface 使用的聊天函数（支持流式输出和思考过程展示）
+    """ChatInterface 使用的聊天函数（支持思考标签解析和思考过程展示）
     
     Args:
         message: 用户输入的消息
@@ -153,7 +187,7 @@ async def chat_fn(message: str, history: list):
         # 显示思考中的消息
         thinking_msg = ChatMessage(
             role="assistant",
-            content="",  # 主消息内容为空
+            content="",
             metadata={
                 "title": "🧠 思考中...", 
                 "status": "pending",
@@ -162,32 +196,41 @@ async def chat_fn(message: str, history: list):
         )
         yield thinking_msg
         
-        # 获取实际回复（Agent 会自动记录思考日志）
+        # 获取实际回复
         response = await agent.process(message)
         logger.LOG_INFO(f"Response received, length: {len(response)}")
         
-        # 获取真实的思考日志
+        # 获取思考日志（工具调用等）
         thought_logs = agent.get_thought_logs()
         
-        # 如果有思考日志，逐步显示
+        # 解析 AI 回复中的思考标签
+        ai_thinking, final_response = parse_thinking_content(response)
+        
+        # 如果有工具调用日志，逐步显示
         if thought_logs:
-            for i, log in enumerate(thought_logs):
+            for log in thought_logs:
                 thinking_msg.metadata["log"] = log
                 yield thinking_msg
-                time.sleep(0.2)  # 短暂延迟让用户看到过程
-        else:
-            thinking_msg.metadata["log"] = "完成思考"
+                time.sleep(0.15)
         
         # 标记思考完成
         thinking_msg.metadata["status"] = "done"
         yield thinking_msg
         
-        # 返回最终回复（包含思考日志）
-        logs_text = "\n".join(f"- {log}" for log in thought_logs)
+        # 构建思考内容（包含工具日志 + AI 思考）
+        all_thinking = []
+        if thought_logs:
+            all_thinking.extend(thought_logs)
+        if ai_thinking:
+            all_thinking.append(f"🤔 AI 思考:\n{ai_thinking}")
+        
+        thinking_text = "\n\n".join(all_thinking)
+        
+        # 返回最终回复（带思考过程折叠面板）
         yield ChatMessage(
             role="assistant", 
-            content=response,
-            metadata={"title": "🧠 思考过程", "log": logs_text}
+            content=final_response,
+            metadata={"title": "🧠 思考过程", "log": thinking_text}
         )
         
     except Exception as e:
