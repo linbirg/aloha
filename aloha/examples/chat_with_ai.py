@@ -21,7 +21,6 @@ def create_agent():
     """创建 Agent 实例"""
     # 优先从 config.toml 读取配置，环境变量会覆盖配置文件
     config = get_config()
-    logger.LOG_DEBUG(f"Config loaded: {config}")
 
     # 获取 Provider 配置 - 先取默认值，再用 provider_config 覆盖
     api_key = os.getenv("OPENAI_API_KEY", "")
@@ -224,13 +223,33 @@ async def chat_fn(message: str, history: list):
         if ai_thinking:
             all_thinking.append(f"🤔 AI 思考:\n{ai_thinking}")
         
+        
         thinking_text = "\n\n".join(all_thinking)
         
-        # 返回最终回复（带思考过程折叠面板）
+        # 使用 HTML 格式分离思考过程和正式回复
+        # 思考过程用 details/summary 包裹，可独立折叠
+        if thinking_text:
+            # 转义 HTML 特殊字符
+            import html
+            escaped_thinking = html.escape(thinking_text)
+            escaped_response = html.escape(final_response)
+            
+            # 思考过程放在前面（可折叠），正式回复在后面
+            content_with_thinking = f"""<details>
+<summary><strong>🧠 思考过程</strong></summary>
+
+{escaped_thinking}
+
+</details>
+
+{escaped_response}"""
+        else:
+            content_with_thinking = final_response
+        
+        # 返回最终回复（思考过程可独立折叠）
         yield ChatMessage(
             role="assistant", 
-            content=final_response,
-            metadata={"title": "🧠 思考过程", "log": thinking_text}
+            content=content_with_thinking
         )
         
     except Exception as e:
@@ -256,7 +275,7 @@ def main():
         fn=chat_fn,
         title="🤖 Aloha AI Assistant",
         description="基于 Gradio 的轻量级 AI 对话界面 | 按 Enter 发送，Shift+Enter 换行",
-        chatbot=gr.Chatbot(height=500, render_markdown=True),
+        chatbot=gr.Chatbot(min_height=500, max_height=1300, render_markdown=True),
         textbox=gr.Textbox(
             placeholder="有问题，尽管问...",
             show_label=False,

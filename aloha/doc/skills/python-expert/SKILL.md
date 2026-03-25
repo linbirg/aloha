@@ -1,6 +1,6 @@
 ---
 name: python-expert
-description: Write idiomatic Python code — PEP 8, type hints, clean & concise
+description: Write idiomatic Python code — PEP 8, type hints, clean & concise，Python Code Generation Guidelines
 ---
 
 # Python Expert
