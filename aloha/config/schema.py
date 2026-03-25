@@ -9,6 +9,8 @@ from typing import Any
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
+from aloha.lib import logger
+
 
 def _load_env() -> None:
     """加载 .env 文件"""
@@ -174,10 +176,10 @@ def get_config() -> AlohaConfig:
                     _config = AlohaConfig.from_file(config_path)
                     # 解析环境变量
                     _config = _resolve_config_env_vars(_config)
-                    print(f"[Config] Loaded config from: {config_path}")
+                    logger.LOG_INFO(f"Loaded config from: {config_path}")
                     break
                 except Exception as e:
-                    print(f"[Config] Failed to load {config_path}: {e}")
+                    logger.LOG_WARNING(f"Failed to load {config_path}: {e}")
         
         if _config is None:
             _config = AlohaConfig()

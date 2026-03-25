@@ -3,11 +3,13 @@
 支持 OpenAI、Anthropic、DeepSeek、OpenRouter、MiniMax 等兼容 OpenAI API 的模型。
 """
 
+import json
 from typing import Any
 
 from openai import AsyncOpenAI
 
 from aloha.providers.base import BaseProvider, Message, Response, ToolCall
+from aloha.lib import logger
 
 
 class OpenAIProvider(BaseProvider):
@@ -88,7 +90,7 @@ class OpenAIProvider(BaseProvider):
                 ToolCall(
                     id=tc.id,
                     name=tc.function.name,
-                    arguments=eval(tc.function.arguments),  # 安全风险，仅用于简单场景
+                    arguments=json.loads(tc.function.arguments),
                 )
                 for tc in msg.tool_calls
             ]

@@ -20,12 +20,6 @@ def get_provider() -> OpenAIProvider:
     """创建 LLM Provider，从配置和 .env 读取"""
     config = get_config()
 
-    # 调试：打印配置中的 api_key
-    print(f"[Debug] config.providers.openai: {config.providers.openai}")
-    if config.providers.openai:
-        print(f"[Debug] config api_key: {config.providers.openai.api_key}")
-        print(f"[Debug] config base_url: {config.providers.openai.base_url}")
-
     # 优先使用环境变量，其次使用配置文件
     api_key = os.getenv("OPENAI_API_KEY") or config.providers.openai.api_key if config.providers.openai else ""
     if not api_key:
@@ -34,9 +28,9 @@ def get_provider() -> OpenAIProvider:
     base_url = os.getenv("OPENAI_BASE_URL") or config.providers.openai.base_url if config.providers.openai else None
     model = os.getenv("MODEL") or config.agents.defaults.model
 
-    # 调试
-    print(f"[Debug] final api_key: {api_key[:20]}..." if len(api_key) > 20 else f"[Debug] final api_key: {api_key}")
-    print(f"[Debug] final base_url: {base_url}")
+    logger.LOG_DEBUG(f"Using api_key: {'***' + api_key[-4:] if len(api_key) > 4 else api_key}")
+    logger.LOG_DEBUG(f"Using base_url: {base_url}")
+    logger.LOG_DEBUG(f"Using model: {model}")
 
     return OpenAIProvider(
         api_key=api_key or "sk-placeholder",
