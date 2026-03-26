@@ -138,6 +138,35 @@ import time
 import re
 
 
+def format_thinking_with_details(thought_logs: list[str], ai_thinking: str = "") -> str:
+    """使用 <details> 标签格式化思考内容
+    
+    Args:
+        thought_logs: 工具调用日志列表
+        ai_thinking: AI 思考内容
+    
+    Returns:
+        str: 格式化的 Markdown 字符串
+    """
+    parts = []
+    
+    # 添加工具调用日志
+    if thought_logs:
+        tool_logs = "\n".join(f"- {log}" for log in thought_logs)
+        parts.append(f"**🛠️ 工具调用:**\n{tool_logs}")
+    
+    # 添加 AI 思考
+    if ai_thinking:
+        parts.append(f"**🤔 AI 思考:**\n{ai_thinking}")
+    
+    if not parts:
+        return ""
+    
+    # 使用 HTML details 标签创建折叠效果
+    thinking_text = "\n\n".join(parts)
+    return f"<details>\n<summary>🧠 点击查看思考过程</summary>\n\n{thinking_text}\n\n</details>"
+
+
 def parse_thinking_content(response: str) -> tuple[str, str]:
     """解析 AI 回复中的思考内容和正式反馈
     
@@ -226,12 +255,17 @@ async def chat_fn(message: str, history: list):
         
         thinking_text = "\n\n".join(all_thinking)
         
-        # 返回最终回复（带思考过程折叠面板）
-        yield ChatMessage(
-            role="assistant", 
-            content=final_response,
-            metadata={"title": "🧠 思考过程", "log": thinking_text}
-        )
+        # 使用 <details> 标签格式化思考内容
+        thinking_details = format_thinking_with_details(thought_logs, ai_thinking)
+        
+        # 拼接最终回复（思考内容 + 正式回复）
+        if thinking_details:
+            full_content = f"{thinking_details}\n\n---\n\n{final_response}"
+        else:
+            full_content = final_response
+        
+        # 返回最终回复（包含可折叠的思考内容）
+        yield ChatMessage(role="assistant", content=full_content)
         
     except Exception as e:
         logger.LOG_WARNING(f"Chat error: {str(e)}")
@@ -256,7 +290,7 @@ def main():
         fn=chat_fn,
         title="🤖 Aloha AI Assistant",
         description="基于 Gradio 的轻量级 AI 对话界面 | 按 Enter 发送，Shift+Enter 换行",
-        chatbot=gr.Chatbot(height=500, render_markdown=True),
+        chatbot=gr.Chatbot(min_height=500,max_height=1500, render_markdown=True),
         textbox=gr.Textbox(
             placeholder="有问题，尽管问...",
             show_label=False,
