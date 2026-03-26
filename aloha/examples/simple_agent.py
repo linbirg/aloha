@@ -7,7 +7,7 @@ import asyncio
 import os
 from pathlib import Path
 
-from aloha import AgentLoop, OpenAIProvider
+from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus
 from aloha.tools import BaseTool, ToolRegistry
 from aloha.tools.base import ToolResult
@@ -65,7 +65,7 @@ async def main():
     )
 
     # 创建 Agent
-    agent = AgentLoop(
+    agent = ReActLoop(
         bus=bus,
         provider=provider,
         workspace=Path("~/.aloha/workspace").expanduser(),

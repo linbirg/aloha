@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from aloha import AgentLoop, OpenAIProvider
+from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus, Envelope
 from aloha.providers.base import Message, Response, ToolCall
 from aloha.memory import SessionMemory, LongTermMemory
@@ -143,8 +143,8 @@ class TestProvider:
         assert response.usage is not None
 
 
-class TestAgentLoop:
-    """测试 AgentLoop"""
+class TestReActLoop:
+    """测试 ReActLoop"""
 
     @pytest.mark.asyncio
     async def test_agent_process(self):
@@ -152,7 +152,7 @@ class TestAgentLoop:
         bus = MessageBus()
         provider = MockProvider()
 
-        agent = AgentLoop(
+        agent = ReActLoop(
             bus=bus,
             provider=provider,
             model="gpt-4o-mini",
@@ -170,7 +170,7 @@ class TestAgentLoop:
         bus = MessageBus()
         provider = MockProvider()
 
-        agent = AgentLoop(
+        agent = ReActLoop(
             bus=bus,
             provider=provider,
             model="gpt-4o-mini",
