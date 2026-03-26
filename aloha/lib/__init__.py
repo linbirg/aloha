@@ -8,11 +8,24 @@
 """
 
 import sys
+import os
+from pathlib import Path
 from aloha.lib.logger import logger as _logger_instance, _LoggerProxy
 
 # 初始化全局日志
 _logger_instance.set_output_level("DEBUG")
-_logger_instance.set_log_file(sys.stderr, {})
+
+# 设置日志文件输出（同时输出到 stderr 和文件）
+# WSL 路径转换
+log_dir = Path(os.path.expanduser("~/.aloha")) / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / "aloha.log"
+
+# 打开日志文件（追加模式）
+_log_file = open(log_file, "a", encoding="utf-8")
+
+# 设置日志输出：DEBUG 级别及以上输出到文件
+_logger_instance.set_log_file(_log_file, {1: _log_file})  # level 1 = DEBUG
 
 
 class _AlohaLogger:

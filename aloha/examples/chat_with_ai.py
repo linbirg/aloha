@@ -39,15 +39,19 @@ class GradioApprovalCallback:
             "resource": permission.resource,
             "risk_level": permission.risk_level.value,
         })
+        
+        print(f"[DEBUG] Approval request sent: {permission.tool}, callback_id={id(self)}, waiting for response...")
 
         # 等待用户响应（使用异步事件）
         try:
             await asyncio.wait_for(self._response_event.wait(), timeout=60)
         except asyncio.TimeoutError:
             logger.LOG_WARNING("Approval request timed out")
+            print(f"[DEBUG] Approval timed out")
             return False
 
         result = self._response
+        print(f"[DEBUG] Approval response received: {result}")
         self._response = None
         self._response_event.clear()
 
@@ -258,7 +262,7 @@ async def process_approval_queue():
             logger.LOG_WARNING(f"Error processing approval queue: {e}")
 
 
-async def chat_fn(message: str, history: list):
+async def chat_fn(message: str, history: list, approval_list_state):
     """ChatInterface 使用的聊天函数
 
     支持安全控制，需要许可时显示确认按钮。
@@ -273,18 +277,15 @@ async def chat_fn(message: str, history: list):
 
     # 检查是否有待审批的请求
     if pending_approvals:
-        # 显示待审批的请求
+        # 显示待审批的请求，并返回当前审批列表状态
+        approval_info = ""
         for approval_id, info in pending_approvals.items():
-            return [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": f"⚠️ **需要权限确认**\n\n"
-                        f"**工具:** {info['tool']}\n"
-                        f"**操作:** {info['action']}\n"
-                        f"**资源:** {info['resource']}\n"
-                        f"**风险级别:** {info['risk_level']}\n\n"
-                        f"请在上方点击确认或拒绝按钮。"},
-            ]
-        return []
+            approval_info += f"**{approval_id}**:\n- 工具: {info['tool']}\n- 操作: {info['action']}\n- 资源: {info['resource']}\n- 风险: {info['risk_level']}\n\n"
+        
+        return [
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": f"⚠️ **需要权限确认**\n\n{approval_info}请在右侧点击确认或拒绝按钮。"},
+        ], pending_approvals
 
     agent = get_agent()
 
@@ -309,10 +310,14 @@ async def chat_fn(message: str, history: list):
             full_content = final_response
 
         # 返回符合 Gradio 5.x 格式的消息列表
+        # 确保返回的是有效的消息格式
+        if not full_content:
+            full_content = "无回复"
+        
         return [
             {"role": "user", "content": message},
             {"role": "assistant", "content": full_content},
-        ]
+        ], pending_approvals
 
     except Exception as e:
         logger.LOG_WARNING(f"Chat error: {str(e)}")
@@ -321,7 +326,7 @@ async def chat_fn(message: str, history: list):
         return [
             {"role": "user", "content": message},
             {"role": "assistant", "content": f"Error: {str(e)}"},
-        ]
+        ], pending_approvals
 
 
 def handle_approval(approval_id: str, approved: bool):
@@ -332,13 +337,18 @@ def handle_approval(approval_id: str, approved: bool):
         approved: 是否批准
     """
     global pending_approvals, _approval_callback
+    
+    print(f"[DEBUG] handle_approval called: approval_id={approval_id}, approved={approved}, callback_id={id(_approval_callback) if _approval_callback else None}")
 
     if approval_id in pending_approvals:
         del pending_approvals[approval_id]
 
     if _approval_callback:
+        print(f"[DEBUG] Setting approval response: {approved}")
         _approval_callback.set_response(approved)
         logger.LOG_INFO(f"User response: {'approved' if approved else 'rejected'} {approval_id}")
+    else:
+        print(f"[DEBUG] _approval_callback is None!")
 
     return "已处理"
 
@@ -358,8 +368,8 @@ def main():
     with gr.Blocks(title="Aloha AI Assistant - 安全模式") as demo:
         gr.Markdown("## 🤖 Aloha AI Assistant\n\n**安全模式已启用** - 需要权限时将显示确认对话框")
 
-        # 审批状态显示
-        approval_status = gr.State(value={})
+        # 审批状态显示 - 使用 State 组件来跟踪待审批列表
+        approval_list_state = gr.State(value={})
 
         with gr.Row():
             with gr.Column(scale=4):
@@ -386,22 +396,22 @@ def main():
                     global pending_approvals
                     return pending_approvals
 
-                # 按钮点击时更新审批列表
+                # 按钮点击时更新审批列表和处理审批
                 def on_approve():
                     global pending_approvals
                     if pending_approvals:
                         first_id = list(pending_approvals.keys())[0]
                         handle_approval(first_id, True)
-                        return "已批准", {}
-                    return "没有待审批的请求", {}
+                        return "已批准", {}, {}
+                    return "没有待审批的请求", {}, {}
 
                 def on_reject():
                     global pending_approvals
                     if pending_approvals:
                         first_id = list(pending_approvals.keys())[0]
                         handle_approval(first_id, False)
-                        return "已拒绝", {}
-                    return "没有待审批的请求", {}
+                        return "已拒绝", {}, {}
+                    return "没有待审批的请求", {}, {}
 
                 # 刷新按钮
                 refresh_btn = gr.Button("🔄 刷新列表", size="sm")
@@ -411,8 +421,11 @@ def main():
                     approve_btn = gr.Button("✅ 批准", variant="primary")
                     reject_btn = gr.Button("❌ 拒绝", variant="stop")
 
-                approve_btn.click(on_approve, outputs=[status_text, approval_list])
-                reject_btn.click(on_reject, outputs=[status_text, approval_list])
+                approve_btn.click(on_approve, outputs=[status_text, approval_list, approval_list_state])
+                reject_btn.click(on_reject, outputs=[status_text, approval_list, approval_list_state])
+
+        # 定时刷新审批列表（每2秒）
+        demo.load(lambda: pending_approvals, outputs=[approval_list])
 
         # 示例问题
         gr.Examples(
@@ -427,13 +440,13 @@ def main():
         # 绑定提交按钮 - 使用 async 函数
         submit_btn.click(
             chat_fn,
-            inputs=[msg_input, chatbot],
-            outputs=[chatbot],
+            inputs=[msg_input, chatbot, approval_list_state],
+            outputs=[chatbot, approval_list],
         )
         msg_input.submit(
             chat_fn,
-            inputs=[msg_input, chatbot],
-            outputs=[chatbot],
+            inputs=[msg_input, chatbot, approval_list_state],
+            outputs=[chatbot, approval_list],
         )
 
     # 启动界面
