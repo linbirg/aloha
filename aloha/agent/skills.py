@@ -1,6 +1,6 @@
-"""Skills Loader - 技能加载器
+"""Agent Skills - Agent 技能模块
 
-参照 nanobot 的 SkillsLoader 设计，管理 agent 的技能。
+管理 agent 的技能（skills）系统。
 """
 
 from dataclasses import dataclass
