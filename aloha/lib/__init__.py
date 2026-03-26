@@ -11,7 +11,7 @@ import sys
 from aloha.lib.logger import logger as _logger_instance, _LoggerProxy
 
 # 初始化全局日志
-_logger_instance.set_output_level("INFO")
+_logger_instance.set_output_level("DEBUG")
 _logger_instance.set_log_file(sys.stderr, {})
 
 

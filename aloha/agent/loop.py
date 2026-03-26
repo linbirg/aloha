@@ -8,6 +8,7 @@ import asyncio
 from pathlib import Path
 
 from aloha.agent.base import Agent
+from aloha.agent.wrapper import ToolWrapper
 from aloha.bus.queue import MessageBus, Envelope
 from aloha.providers.base import BaseProvider, Message
 from aloha.providers.base import Response
@@ -32,6 +33,7 @@ class ReActLoop(Agent):
         temperature: float = 0.1,
         system_prompt: str | None = None,
         prompts_dir: Path | str | None = None,
+        enable_security: bool = True,
     ):
         # 构建 system prompt：优先使用传入的值，其次尝试从 prompt 文件加载
         final_system_prompt = system_prompt
@@ -52,6 +54,12 @@ class ReActLoop(Agent):
         self.thought_logs: list[str] = []  # 思考日志
         self._running = False
         self._prompt_loader = prompt_loader
+
+        # 初始化 ToolWrapper（可选的安全包装器）
+        self._tool_wrapper: ToolWrapper | None = None
+        if enable_security:
+            from aloha.security import SecurityConfig
+            self._tool_wrapper = ToolWrapper(self.tools, SecurityConfig(), enable_security=True)
 
     async def process(self, user_input: str) -> str:
         """处理单次用户输入"""
@@ -105,10 +113,27 @@ class ReActLoop(Agent):
         # 添加助手消息到记忆
         self.session_memory.add_assistant_message(response.content)
 
-        # 如果有工具调用，执行工具
-        if response.tool_calls:
+        # 如果有工具调用，执行工具并循环处理直到没有更多调用
+        max_iterations = 5  # 最多执行5次工具调用
+        iteration = 0
+        
+        while response.tool_calls and iteration < max_iterations:
+            iteration += 1
             for tool_call in response.tool_calls:
                 await self._execute_tool(tool_call)
+            
+            # 获取更新后的消息并再次调用 LLM
+            messages = self._build_messages()
+            tools_schema = self.get_tools_schema()
+            
+            response = await self.provider.chat_with_tools(
+                messages=messages,
+                tools=tools_schema if tools_schema else None,
+                model=self.model,
+            )
+            
+            # 添加新的助手消息
+            self.session_memory.add_assistant_message(response.content)
 
         return response.content
 
@@ -116,22 +141,27 @@ class ReActLoop(Agent):
         """执行工具调用"""
         tool_name = tool_call.name
         tool_args = tool_call.arguments
-        
+
         # 记录工具调用
         self.thought_logs.append(f"🛠️ 调用工具: {tool_name}")
         self.thought_logs.append(f"📝 参数: {tool_args}")
 
-        # 执行工具
-        result = await self.tools.execute_tool(tool_name, **tool_args)
+        # 执行工具（优先使用 ToolWrapper）
+        if self._tool_wrapper:
+            result = await self._tool_wrapper.execute(tool_name, **tool_args)
+        else:
+            result = await self.tools.execute_tool(tool_name, **tool_args)
 
         # 添加工具结果到消息
-        if isinstance(result, dict):
+        if hasattr(result, "success"):
+            content = result.content if result.success else f"Error: {result.error}"
+        elif isinstance(result, dict):
             content = result.get("content", str(result))
             if not result.get("success", True):
                 content = f"Error: {result.get('error', content)}"
         else:
             content = str(result)
-            
+
         # 记录工具结果
         self.thought_logs.append(f"✅ 工具结果: {content[:200]}...")
 
@@ -140,6 +170,22 @@ class ReActLoop(Agent):
             content=content,
             metadata={"tool_call_id": tool_call.id, "tool_name": tool_name},
         )
+
+    def set_tool_wrapper(self, wrapper: ToolWrapper) -> None:
+        """设置工具包装器
+
+        Args:
+            wrapper: ToolWrapper 实例
+        """
+        self._tool_wrapper = wrapper
+
+    def get_tool_wrapper(self) -> ToolWrapper | None:
+        """获取工具包装器
+
+        Returns:
+            ToolWrapper 实例或 None
+        """
+        return self._tool_wrapper
 
     async def run(self) -> None:
         """运行 agent 主循环"""
