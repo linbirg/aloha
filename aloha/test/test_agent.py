@@ -7,8 +7,7 @@ from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus, Envelope
 from aloha.providers.base import Message, Response, ToolCall
 from aloha.memory import SessionMemory, LongTermMemory
-from aloha.tools import ToolRegistry
-from aloha.tools.base import BaseTool, ToolResult
+from aloha.tools import BaseTool, ToolResult, ToolRegistry
 
 
 class MockProvider(OpenAIProvider):

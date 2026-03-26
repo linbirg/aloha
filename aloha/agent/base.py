@@ -6,7 +6,7 @@ from typing import Any
 
 from aloha.providers.base import BaseProvider
 from aloha.memory import SessionMemory, LongTermMemory
-from aloha.tools import ToolRegistry
+from aloha.agent.tools import ToolRegistry
 
 
 class Agent(ABC):

@@ -9,8 +9,7 @@ from pathlib import Path
 
 from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus
-from aloha.tools import BaseTool, ToolRegistry
-from aloha.tools.base import ToolResult
+from aloha.tools import BaseTool, ToolResult, ToolRegistry
 
 
 class CalculatorTool(BaseTool):
