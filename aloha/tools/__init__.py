@@ -1,6 +1,19 @@
-"""Aloha Tools 模块"""
+"""Aloha Tools 模块
 
-from aloha.tools.base import BaseTool
-from aloha.tools.registry import ToolRegistry
+存放系统自带工具（文件读写、命令执行、Web访问等）。
+"""
 
-__all__ = ["BaseTool", "ToolRegistry"]
+from aloha.agent.tools import BaseTool, ToolResult, ToolMetadata, ToolRegistry
+from aloha.tools.file_tool import FileTool
+from aloha.tools.shell_tool import ShellTool
+from aloha.tools.web_tool import WebTool
+
+__all__ = [
+    "BaseTool",
+    "ToolResult",
+    "ToolMetadata",
+    "ToolRegistry",
+    "FileTool",
+    "ShellTool",
+    "WebTool",
+]

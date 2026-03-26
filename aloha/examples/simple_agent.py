@@ -7,10 +7,9 @@ import asyncio
 import os
 from pathlib import Path
 
-from aloha import ReactAgent, OpenAIProvider
+from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus
-from aloha.tools import BaseTool, ToolRegistry
-from aloha.tools.base import ToolResult
+from aloha.tools import BaseTool, ToolResult, ToolRegistry
 
 
 class CalculatorTool(BaseTool):
@@ -65,7 +64,7 @@ async def main():
     )
 
     # 创建 Agent
-    agent = ReactAgent(
+    agent = ReActLoop(
         bus=bus,
         provider=provider,
         workspace=Path("~/.aloha/workspace").expanduser(),

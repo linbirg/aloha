@@ -24,3 +24,6 @@ click>=8.0.0         # CLI 框架
 
 # Web UI 支持
 gradio>=4.0.0       # Web UI 框架，用于构建 AI 对话界面
+
+# HTTP 客户端支持
+aiohttp>=3.9.0      # 异步 HTTP 客户端，用于 WebTool

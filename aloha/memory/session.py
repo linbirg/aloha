@@ -46,7 +46,11 @@ class SessionMemory:
     def get_messages(self) -> list[Message]:
         """获取消息列表（用于 LLM 调用）"""
         return [
-            Message(role=m.role, content=m.content)
+            Message(
+                role=m.role,
+                content=m.content,
+                tool_call_id=m.metadata.get("tool_call_id") if m.role == "tool" else None,
+            )
             for m in self.messages
         ]
 

@@ -6,7 +6,7 @@
 import os
 from pathlib import Path
 
-from aloha import ReactAgent, OpenAIProvider, SkillsLoader
+from aloha import ReActLoop, OpenAIProvider, SkillsLoader
 from aloha.bus import MessageBus
 
 

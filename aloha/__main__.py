@@ -10,7 +10,7 @@ from pathlib import Path
 
 import click
 
-from aloha import ReactAgent, OpenAIProvider
+from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus
 from aloha.config import get_config
 from aloha.lib import logger
@@ -60,7 +60,7 @@ def chat(model: str | None, system: str | None, prompts_dir: str | None):
 
     # 创建 agent
     bus = MessageBus()
-    agent = ReactAgent(
+    agent = ReActLoop(
         bus=bus,
         provider=provider,
         workspace=Path("~/.aloha/workspace").expanduser(),
@@ -107,7 +107,7 @@ def say(message: str, model: str | None, prompts_dir: str | None):
         provider.default_model = model
 
     bus = MessageBus()
-    agent = ReactAgent(
+    agent = ReActLoop(
         bus=bus,
         provider=provider,
         workspace=Path("~/.aloha/workspace").expanduser(),
