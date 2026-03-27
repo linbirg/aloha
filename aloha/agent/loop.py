@@ -131,10 +131,11 @@ class ReActLoop(Agent):
             messages = self._build_messages()
             has_tool_result = any(m.role == "tool" for m in messages)
             
-            # 如果没有工具结果（执行失败），则停止循环
+            # 如果没有工具结果（执行失败），继续循环，等待用户审批响应
+            # 注意：可能是用户刚刚批准了请求，我们需要再次尝试调用 LLM
             if not has_tool_result:
-                logger.LOG_DEBUG("[_handle_response] No tool results, stopping loop")
-                return "⚠️ 工具执行失败：需要权限审批，但审批超时或被拒绝。请重新发送请求并及时批准。"
+                logger.LOG_DEBUG("[_handle_response] No tool results, will retry LLM call")
+                # 不直接返回错误，而是继续循环，让 LLM 再次决定下一步
             
             # 获取更新后的消息并再次调用 LLM
             logger.LOG_DEBUG(f"[_handle_response] Sending {len(messages)} messages to LLM")

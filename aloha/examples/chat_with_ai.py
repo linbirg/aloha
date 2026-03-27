@@ -218,16 +218,18 @@ _agent: ReActLoop | None = None
 def get_agent():
     """获取或创建 Agent 实例（单例）
     
-    每次调用都会创建新的队列和回调，确保与当前 Gradio 会话匹配。
+    首次调用创建 Agent，之后复用。
+    队列和回调在首次创建时初始化，保持与 Agent 的引用一致。
     """
     global _agent, _approval_queue, _approval_callback
     
-    # 每次都创建新的队列和回调
-    _approval_queue = asyncio.Queue()
-    _approval_callback = GradioApprovalCallback(_approval_queue)
+    # 首次创建
+    if _agent is None:
+        _approval_queue = asyncio.Queue()
+        _approval_callback = GradioApprovalCallback(_approval_queue)
+        _agent = create_agent(approval_callback=_approval_callback)
+        logger.LOG_INFO("Agent created for the first time")
     
-    # 创建新的 agent（传入回调实例）
-    _agent = create_agent(approval_callback=_approval_callback)
     return _agent
 
 
@@ -275,6 +277,7 @@ def parse_thinking_content(response: str) -> tuple[str, str]:
 # 用于存储待审批请求
 pending_approvals: dict = {}
 approval_counter = 0
+_current_user_message: str = ""  # 保存当前正在处理的用户消息
 
 
 async def process_approval_queue():
@@ -320,11 +323,16 @@ async def chat_fn(message: str, history: list, approval_list_state):
 
     logger.LOG_DEBUG(f"ChatInterface called with message: {message[:50]}...")
 
+    global _current_user_message
+    
     # 处理审批队列
     await process_approval_queue()
 
     # 检查是否有待审批的请求
     if pending_approvals:
+        # 保存当前消息，以便审批后重新处理
+        _current_user_message = message
+        
         # 显示待审批的请求，并返回当前审批列表状态
         approval_info = ""
         for approval_id, info in pending_approvals.items():
@@ -383,8 +391,11 @@ def handle_approval(approval_id: str, approved: bool):
     Args:
         approval_id: 审批请求 ID
         approved: 是否批准
+    
+    Returns:
+        tuple: (状态消息, 审批列表, 触发重处理标志)
     """
-    global pending_approvals, _approval_callback
+    global pending_approvals, _approval_callback, _current_user_message
     
     logger.LOG_DEBUG(f"[handle_approval] called with approval_id={approval_id}, approved={approved}")
 
@@ -399,7 +410,9 @@ def handle_approval(approval_id: str, approved: bool):
     else:
         logger.LOG_WARNING("[handle_approval] _approval_callback is None!")
 
-    return "已处理"
+    # 返回触发重处理：需要重新调用 chat_fn 来继续处理
+    should_rerun = len(_current_user_message) > 0 and approved
+    return "已处理", pending_approvals, should_rerun
 
 
 def main():
@@ -447,24 +460,61 @@ def main():
 
                 # 按钮点击时更新审批列表和处理审批
                 def on_approve():
-                    global pending_approvals
+                    global pending_approvals, _current_user_message
                     logger.LOG_DEBUG("[on_approve] button clicked")
-                    if pending_approvals:
-                        first_id = list(pending_approvals.keys())[0]
-                        logger.LOG_DEBUG(f"[on_approve] found pending approval {first_id}")
-                        handle_approval(first_id, True)
-                        return "已批准", {}, {}
-                    logger.LOG_DEBUG("[on_approve] no pending approvals")
-                    return "没有待审批的请求", {}, {}
+                    
+                    if not pending_approvals:
+                        logger.LOG_DEBUG("[on_approve] no pending approvals")
+                        return "没有待审批的请求", None, ""
+                    
+                    first_id = list(pending_approvals.keys())[0]
+                    logger.LOG_DEBUG(f"[on_approve] found pending approval {first_id}")
+                    
+                    # 先处理审批
+                    handle_approval(first_id, True)
+                    
+                    # 检查是否有待处理的消息
+                    msg = _current_user_message
+                    _current_user_message = ""  # 清空
+                    
+                    if not msg:
+                        return "已批准", None, ""
+                    
+                    # 直接重新处理消息
+                    try:
+                        agent = get_agent()
+                        import asyncio
+                        response = asyncio.run(agent.process(msg))
+                        thought_logs = agent.get_thought_logs()
+                        ai_thinking, final_response = parse_thinking_content(response)
+                        thinking_details = format_thinking_with_details(thought_logs, ai_thinking)
+                        full_content = f"{thinking_details}\n\n---\n\n{final_response}" if thinking_details else final_response
+                        
+                        return "已批准", [
+                            {"role": "user", "content": msg},
+                            {"role": "assistant", "content": full_content},
+                        ], ""
+                    except Exception as e:
+                        logger.LOG_WARNING(f"Error re-processing after approval: {e}")
+                        import traceback
+                        logger.LOG_WARNING(f"Traceback: {traceback.format_exc()}")
+                        return "已批准（处理失败）", [
+                            {"role": "user", "content": msg},
+                            {"role": "assistant", "content": f"Error: {str(e)}"},
+                        ], ""
 
                 def on_reject():
-                    global pending_approvals
+                    global pending_approvals, _current_user_message
                     logger.LOG_DEBUG("[on_reject] button clicked")
+                    
                     if pending_approvals:
                         first_id = list(pending_approvals.keys())[0]
                         handle_approval(first_id, False)
-                        return "已拒绝", {}, {}
-                    return "没有待审批的请求", {}, {}
+                    
+                    # 清空保存的消息
+                    _current_user_message = ""
+                    
+                    return f"{'已拒绝' if pending_approvals else '没有待审批的请求'}", None, ""
 
                 # 刷新按钮
                 refresh_btn = gr.Button("🔄 刷新列表", size="sm")
@@ -474,8 +524,16 @@ def main():
                     approve_btn = gr.Button("✅ 批准", variant="primary")
                     reject_btn = gr.Button("❌ 拒绝", variant="stop")
 
-                approve_btn.click(on_approve, outputs=[status_text, approval_list, approval_list_state])
-                reject_btn.click(on_reject, outputs=[status_text, approval_list, approval_list_state])
+                # 批准按钮：返回新的聊天消息 + 审批列表
+                approve_btn.click(
+                    on_approve,
+                    outputs=[status_text, chatbot, approval_list],
+                )
+                # 拒绝按钮：只更新状态
+                reject_btn.click(
+                    on_reject,
+                    outputs=[status_text, chatbot, approval_list],
+                )
 
         # 定时刷新审批列表（每2秒）
         demo.load(lambda: pending_approvals, outputs=[approval_list])
@@ -505,7 +563,7 @@ def main():
     # 启动界面
     demo.launch(
         server_name="0.0.0.0",
-        server_port=7861,
+        server_port=7862,
         share=False,
         theme="soft",
     )
