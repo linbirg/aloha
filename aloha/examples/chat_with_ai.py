@@ -19,6 +19,7 @@ from aloha.config import get_config
 from aloha.lib import logger
 from aloha.tools import FileTool, ShellTool, WebTool
 from aloha.security import SecurityConfig, MockApprovalCallback
+from aloha.security.policy import Permission
 
 
 class GradioApprovalCallback:
@@ -29,7 +30,7 @@ class GradioApprovalCallback:
         self._response_event = asyncio.Event()
         self._response = None
 
-    async def request_approval(self, permission) -> bool:
+    async def request_approval(self, permission: Permission) -> bool:
         """请求用户批准"""
         # 发送审批请求到 Gradio 界面
         await self.gradio_queue.put({
@@ -40,22 +41,62 @@ class GradioApprovalCallback:
             "risk_level": permission.risk_level.value,
         })
         
-        print(f"[DEBUG] Approval request sent: {permission.tool}, callback_id={id(self)}, waiting for response...")
+        logger.LOG_DEBUG(f"[ApprovalCallback] Approval request sent: {permission.tool}, waiting for user response...")
 
-        # 等待用户响应（使用异步事件）
-        try:
-            await asyncio.wait_for(self._response_event.wait(), timeout=60)
-        except asyncio.TimeoutError:
-            logger.LOG_WARNING("Approval request timed out")
-            print(f"[DEBUG] Approval timed out")
-            return False
+        # 等待用户响应 - 使用轮询方式检测响应
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            # 检查是否已有响应
+            if self._response is not None:
+                result = self._response
+                self._response = None
+                self._response_event.clear()
+                logger.LOG_DEBUG(f"[ApprovalCallback] Response received: {result}")
+                return result is True
+            
+            # 检查是否超时
+            elapsed = asyncio.get_event_loop().time() - start_time
+            if elapsed >= 60:
+                logger.LOG_WARNING("Approval request timed out")
+                return False
+            
+            logger.LOG_DEBUG(f"Approval request timed {elapsed}...")
+            # 短暂等待后再次检查
+            await asyncio.sleep(0.5)
 
-        result = self._response
-        print(f"[DEBUG] Approval response received: {result}")
-        self._response = None
-        self._response_event.clear()
+    async def request_approval_with_timeout(self, permission: Permission, timeout: float) -> bool:
+        """请求用户批准，带超时时间"""
+        # 发送审批请求到 Gradio 界面
+        await self.gradio_queue.put({
+            "type": "approval_request",
+            "tool": permission.tool,
+            "action": permission.action,
+            "resource": permission.resource,
+            "risk_level": permission.risk_level.value,
+        })
+        
+        logger.LOG_DEBUG(f"[ApprovalCallback] Approval request sent with timeout={timeout}s")
 
-        return result is True
+        # 等待用户响应 - 使用轮询方式检测响应
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            # 检查是否已有响应
+            if self._response is not None:
+                result = self._response
+                self._response = None
+                self._response_event.clear()
+                logger.LOG_DEBUG(f"[ApprovalCallback] Response received: {result}")
+                return result is True
+            
+            # 检查是否超时
+            elapsed = asyncio.get_event_loop().time() - start_time
+            if elapsed >= timeout:
+                logger.LOG_WARNING(f"Approval request timed out after {timeout}s")
+                return False
+            
+            logger.LOG_DEBUG(f"Approval request timed {elapsed}...")
+            # 短暂等待后再次检查
+            await asyncio.sleep(0.5)
 
     async def notify(self, message: str) -> None:
         """通知用户"""
@@ -75,12 +116,12 @@ _approval_queue: asyncio.Queue | None = None
 _approval_callback: GradioApprovalCallback | None = None
 
 
-def create_agent(enable_security: bool = True, approval_queue: asyncio.Queue | None = None):
+def create_agent(enable_security: bool = True, approval_callback: GradioApprovalCallback | None = None):
     """创建 Agent 实例
 
     Args:
         enable_security: 是否启用安全控制
-        approval_queue: 审批队列（用于 GUI 交互）
+        approval_callback: 审批回调实例（优先使用）
     """
     # 优先从 config.toml 读取配置，环境变量会覆盖配置文件
     config = get_config()
@@ -130,10 +171,8 @@ def create_agent(enable_security: bool = True, approval_queue: asyncio.Queue | N
         )
 
         # 设置审批回调
-        if approval_queue:
-            global _approval_callback
-            _approval_callback = GradioApprovalCallback(approval_queue)
-            security_config.approval_callback = _approval_callback
+        if approval_callback:
+            security_config.approval_callback = approval_callback
 
         # 创建 agent（启用安全）
         agent = ReActLoop(
@@ -177,11 +216,18 @@ _agent: ReActLoop | None = None
 
 
 def get_agent():
-    """获取或创建 Agent 实例（单例）"""
-    global _agent, _approval_queue
-    if _agent is None:
-        _approval_queue = asyncio.Queue()
-        _agent = create_agent(approval_queue=_approval_queue)
+    """获取或创建 Agent 实例（单例）
+    
+    每次调用都会创建新的队列和回调，确保与当前 Gradio 会话匹配。
+    """
+    global _agent, _approval_queue, _approval_callback
+    
+    # 每次都创建新的队列和回调
+    _approval_queue = asyncio.Queue()
+    _approval_callback = GradioApprovalCallback(_approval_queue)
+    
+    # 创建新的 agent（传入回调实例）
+    _agent = create_agent(approval_callback=_approval_callback)
     return _agent
 
 
@@ -240,6 +286,7 @@ async def process_approval_queue():
 
     while not _approval_queue.empty():
         try:
+            logger.LOG_WARNING(f"not _approval_queue not empty...")
             msg = await asyncio.wait_for(_approval_queue.get(), timeout=0.1)
 
             if msg.get("type") == "approval_request":
@@ -256,7 +303,8 @@ async def process_approval_queue():
                 # 更新 UI（通过返回特殊消息）
                 logger.LOG_INFO(f"Approval requested: {msg['tool']} {msg['action']} {msg['resource']}")
 
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as toe:
+            logger.LOG_WARNING(f"Error processing approval queue: {toe}")
             break
         except Exception as e:
             logger.LOG_WARNING(f"Error processing approval queue: {e}")
@@ -338,17 +386,18 @@ def handle_approval(approval_id: str, approved: bool):
     """
     global pending_approvals, _approval_callback
     
-    print(f"[DEBUG] handle_approval called: approval_id={approval_id}, approved={approved}, callback_id={id(_approval_callback) if _approval_callback else None}")
+    logger.LOG_DEBUG(f"[handle_approval] called with approval_id={approval_id}, approved={approved}")
 
     if approval_id in pending_approvals:
         del pending_approvals[approval_id]
+        logger.LOG_DEBUG(f"[handle_approval] Removed {approval_id} from pending_approvals")
 
     if _approval_callback:
-        print(f"[DEBUG] Setting approval response: {approved}")
+        logger.LOG_DEBUG(f"[handle_approval] Setting approval response: {approved}")
         _approval_callback.set_response(approved)
         logger.LOG_INFO(f"User response: {'approved' if approved else 'rejected'} {approval_id}")
     else:
-        print(f"[DEBUG] _approval_callback is None!")
+        logger.LOG_WARNING("[handle_approval] _approval_callback is None!")
 
     return "已处理"
 
@@ -399,14 +448,18 @@ def main():
                 # 按钮点击时更新审批列表和处理审批
                 def on_approve():
                     global pending_approvals
+                    logger.LOG_DEBUG("[on_approve] button clicked")
                     if pending_approvals:
                         first_id = list(pending_approvals.keys())[0]
+                        logger.LOG_DEBUG(f"[on_approve] found pending approval {first_id}")
                         handle_approval(first_id, True)
                         return "已批准", {}, {}
+                    logger.LOG_DEBUG("[on_approve] no pending approvals")
                     return "没有待审批的请求", {}, {}
 
                 def on_reject():
                     global pending_approvals
+                    logger.LOG_DEBUG("[on_reject] button clicked")
                     if pending_approvals:
                         first_id = list(pending_approvals.keys())[0]
                         handle_approval(first_id, False)
@@ -452,7 +505,7 @@ def main():
     # 启动界面
     demo.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=7861,
         share=False,
         theme="soft",
     )

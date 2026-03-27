@@ -79,11 +79,29 @@ class ApprovalCallback(Protocol):
         """通知用户"""
         ...
 
+    async def request_approval_with_timeout(
+        self, permission: Permission, timeout: float
+    ) -> bool:
+        """请求用户批准，带超时时间
+
+        Args:
+            permission: 权限请求
+            timeout: 超时时间（秒）
+
+        Returns:
+            是否在超时前批准
+        """
+        ...
+
 
 class MockApprovalCallback:
     """模拟审批回调（用于测试和开发）"""
 
     async def request_approval(self, permission: Permission) -> bool:
+        """自动批准所有请求（开发模式）"""
+        return True
+
+    async def request_approval_with_timeout(self, permission: Permission, timeout: float) -> bool:
         """自动批准所有请求（开发模式）"""
         return True
 
