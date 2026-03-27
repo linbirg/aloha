@@ -73,7 +73,7 @@ aloha/
 ├── __main__.py          # 命令行入口
 ├── agent/               # Agent 核心模块
 │   ├── base.py         # Agent 基类
-│   └── loop.py         # AgentLoop 主循环
+│   └── loop.py         # ReactAgent 主循环
 ├── bus/                 # 消息总线
 ├── config/              # 配置系统
 │   └── schema.py       # Pydantic 配置模型

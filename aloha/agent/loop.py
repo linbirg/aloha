@@ -119,11 +119,30 @@ class ReActLoop(Agent):
         
         while response.tool_calls and iteration < max_iterations:
             iteration += 1
+            print(f"[DEBUG] Iteration {iteration}, tool_calls: {[tc.id for tc in response.tool_calls]}")
+            
+            # 执行所有工具调用
+            tool_execution_failed = False
             for tool_call in response.tool_calls:
+                print(f"[DEBUG] Executing tool: {tool_call.name}, id={tool_call.id}")
                 await self._execute_tool(tool_call)
             
-            # 获取更新后的消息并再次调用 LLM
+            # 检查是否有工具执行失败（通过检查最后一条消息是否为 tool 类型）
             messages = self._build_messages()
+            has_tool_result = any(m.role == "tool" for m in messages)
+            
+            # 如果没有工具结果（执行失败），则停止循环
+            if not has_tool_result:
+                print(f"[DEBUG] No tool results (execution failed), stopping loop")
+                return "⚠️ 工具执行失败：需要权限审批，但审批超时或被拒绝。请重新发送请求并及时批准。"
+            
+            # 获取更新后的消息并再次调用 LLM
+            # 调试：打印消息内容
+            print(f"[DEBUG] Messages to send ({len(messages)}):")
+            for i, msg in enumerate(messages):
+                tc_id = f", tool_call_id={msg.tool_call_id}" if msg.tool_call_id else ""
+                print(f"  [{i}] role={msg.role}, content_len={len(msg.content) if msg.content else 0}{tc_id}")
+            
             tools_schema = self.get_tools_schema()
             
             response = await self.provider.chat_with_tools(
@@ -141,10 +160,12 @@ class ReActLoop(Agent):
         """执行工具调用"""
         tool_name = tool_call.name
         tool_args = tool_call.arguments
+        tool_call_id = tool_call.id  # 记录原始的 tool_call_id
 
         # 记录工具调用
         self.thought_logs.append(f"🛠️ 调用工具: {tool_name}")
         self.thought_logs.append(f"📝 参数: {tool_args}")
+        print(f"[DEBUG] _execute_tool: tool={tool_name}, tool_call_id={tool_call_id}")
 
         # 执行工具（优先使用 ToolWrapper）
         if self._tool_wrapper:
@@ -152,7 +173,16 @@ class ReActLoop(Agent):
         else:
             result = await self.tools.execute_tool(tool_name, **tool_args)
 
-        # 添加工具结果到消息
+        # 检查工具是否执行成功
+        tool_execution_success = True
+        if hasattr(result, "success"):
+            if not result.success:
+                tool_execution_success = False
+        elif isinstance(result, dict):
+            if not result.get("success", True):
+                tool_execution_success = False
+
+        # 构建工具结果内容
         if hasattr(result, "success"):
             content = result.content if result.success else f"Error: {result.error}"
         elif isinstance(result, dict):
@@ -162,14 +192,32 @@ class ReActLoop(Agent):
         else:
             content = str(result)
 
-        # 记录工具结果
-        self.thought_logs.append(f"✅ 工具结果: {content[:200]}...")
+        # 打印工具结果内容
+        print(f"[DEBUG] Tool result content: {content[:500]}")
 
+        # 记录工具结果（包括成功和失败）
+        if not tool_execution_success:
+            self.thought_logs.append(f"❌ 工具执行失败: {content}")
+            print(f"[DEBUG] Tool execution failed, NOT adding tool message to avoid API error")
+            # 不添加工具消息，避免 MiniMax API 报错
+            return
+        else:
+            self.thought_logs.append(f"✅ 工具结果: {content[:200]}...")
+
+        print(f"[DEBUG] Adding tool message with tool_call_id={tool_call_id}")
+
+        # 添加工具结果到消息（只有成功时才添加）
         self.session_memory.add_message(
             role="tool",
             content=content,
-            metadata={"tool_call_id": tool_call.id, "tool_name": tool_name},
+            metadata={"tool_call_id": tool_call_id, "tool_name": tool_name},
         )
+        
+        # 打印当前所有消息
+        print(f"[DEBUG] Current messages after tool execution:")
+        for i, msg in enumerate(self.session_memory.get_messages()):
+            tc_id = f", tool_call_id={msg.tool_call_id}" if msg.tool_call_id else ""
+            print(f"  [{i}] role={msg.role}, content_len={len(msg.content) if msg.content else 0}{tc_id}")
 
     def set_tool_wrapper(self, wrapper: ToolWrapper) -> None:
         """设置工具包装器
