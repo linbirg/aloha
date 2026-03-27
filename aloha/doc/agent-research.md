@@ -1189,10 +1189,74 @@ for await (const event of agentLoopContinue(context, config)) {
 6. **Steering/Follow-up** - 运行时的消息注入机制
 7. **Thinking Levels** - 内置的思考预算控制
 8. **Low-Level API** - agentLoop() 供高级用户使用
+9. **agentLoop 设计模式** - Async Generator + 事件流 + ReAct 模式
 
 ---
 
-## 是否适合作为基础？
+# 第六点五部分：agentLoop 设计模式详解
+
+## 架构模式
+
+`agentLoop` 采用以下设计模式：
+
+### 1. 异步生成器模式（Async Generator）
+
+```typescript
+for await (const event of agentLoop([userMessage], context, config)) {
+  console.log(event.type);
+}
+```
+
+- 返回一个 **异步生成器（Async Generator）**
+- 使用 `for await...of` 消费事件流
+- 事件按顺序逐个发出
+
+### 2. 事件驱动 + 观察者模式
+
+事件流顺序：
+```
+userMessage → LLM → assistantMessage → toolCall → toolResult → (repeat until no tools)
+```
+
+### 3. 生产者-消费者分离
+
+- **生产者**：LLM 调用 + 工具执行，持续产生事件
+- **消费者**：用户代码，通过 `for await` 消费
+- ⚠️ 注意：这些低级流是**观察性的**，不等待异步处理完成就继续后续阶段
+
+### 4. ReAct 模式
+
+pi-agent-core 基于 **ReAct (Reasoning + Acting)** 设计模式：
+- LLM 推理 → 决定是否调用工具 → 执行工具 → 将结果反馈给 LLM → 循环直到完成
+
+### 5. 与 Agent 类的关键区别
+
+| 特性 | agentLoop (Low-Level) | Agent Class |
+|------|----------------------|-------------|
+| 消息处理屏障 | ❌ 无 | ✅ 有 |
+| 工具预检同步 | ❌ 异步继续 | ✅ 同步等待 |
+| 适用场景 | 高级用户自定义 | 一般使用 |
+
+文档明确指出：
+> 如果需要消息处理作为工具预检的屏障，使用 `Agent` 类而不是原始的 `agentLoop()` 或 `agentLoopContinue()`。
+
+### 核心 API
+
+```typescript
+// 初始调用
+for await (const event of agentLoop([userMessage], context, config)) {
+  // 处理事件
+}
+
+// 继续（从现有上下文重试）
+for await (const event of agentLoopContinue(context, config)) {
+  // 处理事件
+}
+```
+
+### 总结
+
+`agentLoop` = **Async Generator** + **事件流** + **ReAct 循环** + **观察者模式**
 
 **作为基础的可能性**：中等
 
