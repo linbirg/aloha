@@ -8,6 +8,7 @@ import asyncio
 from pathlib import Path
 
 from aloha.agent.base import Agent
+from aloha.agent.tools import ToolResult
 from aloha.agent.wrapper import ToolWrapper
 from aloha.bus.queue import MessageBus, Envelope
 from aloha.providers.base import BaseProvider, Message
@@ -109,35 +110,65 @@ class ReActLoop(Agent):
         return messages
 
     async def _handle_response(self, response: Response) -> str:
-        """处理 LLM 响应"""
+        """处理 LLM 响应
+        
+        参照 NanoBot 的实现：
+        - 使用 max_iterations 作为整体迭代限制
+        - 所有工具结果（包括失败）都添加工具消息
+        - 工具异常时终止调用，将异常作为消息结果
+        """
         # 添加助手消息到记忆
         self.session_memory.add_assistant_message(response.content)
 
-        # 如果有工具调用，执行工具并循环处理直到没有更多调用
-        max_iterations = 5  # 最多执行5次工具调用
+        # 使用 max_iterations 作为整体迭代次数限制
         iteration = 0
         
-        while response.tool_calls and iteration < max_iterations:
+        while response.tool_calls and iteration < self.max_iterations:
             iteration += 1
-            logger.LOG_DEBUG(f"[_handle_response] Iteration {iteration}, tool_calls: {[tc.id for tc in response.tool_calls]}")
+            logger.LOG_DEBUG(f"[_handle_response] Iteration {iteration}/{self.max_iterations}, tool_calls: {[tc.id for tc in response.tool_calls]}")
             
-            # 执行所有工具调用
-            tool_execution_failed = False
+            # 执行所有工具调用，收集结果
+            tool_execution_error = None
             for tool_call in response.tool_calls:
-                logger.LOG_DEBUG(f"[_handle_response] Executing tool: {tool_call.name}")
-                await self._execute_tool(tool_call)
+                try:
+                    # 调用纯函数获取结果
+                    result = await self._execute_tool(tool_call)
+                except Exception as e:
+                    # 工具执行异常，交给上层处理
+                    tool_execution_error = e
+                    logger.LOG_DEBUG(f"[_handle_response] Tool execution exception: {e}")
+                    break
+                
+                # 处理副作用：记录日志
+                self.thought_logs.append(f"🛠️ 调用工具: {tool_call.name}")
+                self.thought_logs.append(f"📝 参数: {tool_call.arguments}")
+                
+                if result.success:
+                    self.thought_logs.append(f"✅ 工具结果: {result.content[:200]}...")
+                else:
+                    self.thought_logs.append(f"❌ 工具执行失败: {result.error}")
+                
+                # 处理副作用：添加工具消息到 session
+                content = result.content if result.success else f"Error: {result.error}"
+                self.session_memory.add_message(
+                    role="tool",
+                    content=content,
+                    metadata={"tool_call_id": tool_call.id, "tool_name": tool_call.name},
+                )
             
-            # 检查是否有工具执行失败（通过检查最后一条消息是否为 tool 类型）
-            messages = self._build_messages()
-            has_tool_result = any(m.role == "tool" for m in messages)
-            
-            # 如果没有工具结果（执行失败），继续循环，等待用户审批响应
-            # 注意：可能是用户刚刚批准了请求，我们需要再次尝试调用 LLM
-            if not has_tool_result:
-                logger.LOG_DEBUG("[_handle_response] No tool results, will retry LLM call")
-                # 不直接返回错误，而是继续循环，让 LLM 再次决定下一步
+            # 检查是否有工具执行异常
+            if tool_execution_error:
+                # 添加工具错误消息
+                error_content = f"Tool execution error: {str(tool_execution_error)}"
+                self.session_memory.add_message(
+                    role="tool",
+                    content=error_content,
+                    metadata={"error": True},
+                )
+                logger.LOG_DEBUG("[_handle_response] Tool error occurred, will retry LLM call")
             
             # 获取更新后的消息并再次调用 LLM
+            messages = self._build_messages()
             logger.LOG_DEBUG(f"[_handle_response] Sending {len(messages)} messages to LLM")
             
             tools_schema = self.get_tools_schema()
@@ -150,69 +181,30 @@ class ReActLoop(Agent):
             
             # 添加新的助手消息
             self.session_memory.add_assistant_message(response.content)
+            
+            # 检查是否达到最大迭代次数
+            if iteration >= self.max_iterations:
+                logger.LOG_DEBUG(f"[_handle_response] Max iterations ({self.max_iterations}) reached")
 
         return response.content
 
-    async def _execute_tool(self, tool_call) -> None:
-        """执行工具调用"""
+    async def _execute_tool(self, tool_call) -> ToolResult:
+        """执行工具调用（纯函数，返回 ToolResult）
+        
+        只负责执行工具并返回结果，不修改任何状态，不处理异常。
+        异常由上层函数 _handle_response 处理。
+        """
         tool_name = tool_call.name
         tool_args = tool_call.arguments
-        tool_call_id = tool_call.id  # 记录原始的 tool_call_id
-
-        # 记录工具调用
-        self.thought_logs.append(f"🛠️ 调用工具: {tool_name}")
-        self.thought_logs.append(f"📝 参数: {tool_args}")
-        
-        from aloha.lib import logger
-        logger.LOG_DEBUG(f"[_execute_tool] tool={tool_name}, tool_call_id={tool_call_id}")
 
         # 执行工具（优先使用 ToolWrapper）
         if self._tool_wrapper:
             result = await self._tool_wrapper.execute(tool_name, **tool_args)
         else:
-            result = await self.tools.execute_tool(tool_name, **tool_args)
+            result = await self.tools.execute(tool_name, **tool_args)
 
-        logger.LOG_DEBUG(f"[_execute_tool] Tool result: success={getattr(result, 'success', 'N/A')}")
-
-        # 检查工具是否执行成功
-        tool_execution_success = True
-        if hasattr(result, "success"):
-            if not result.success:
-                tool_execution_success = False
-        elif isinstance(result, dict):
-            if not result.get("success", True):
-                tool_execution_success = False
-
-        # 构建工具结果内容
-        if hasattr(result, "success"):
-            content = result.content if result.success else f"Error: {result.error}"
-        elif isinstance(result, dict):
-            content = result.get("content", str(result))
-            if not result.get("success", True):
-                content = f"Error: {result.get('error', content)}"
-        else:
-            content = str(result)
-
-        # 记录工具结果（包括成功和失败）
-        if not tool_execution_success:
-            self.thought_logs.append(f"❌ 工具执行失败: {content}")
-            logger.LOG_DEBUG("[_execute_tool] Tool execution failed, not adding tool message")
-            # 不添加工具消息，避免 MiniMax API 报错
-            return
-        else:
-            self.thought_logs.append(f"✅ 工具结果: {content[:200]}...")
-
-        logger.LOG_DEBUG(f"[_execute_tool] Adding tool message with tool_call_id={tool_call_id}")
-
-        # 添加工具结果到消息（只有成功时才添加）
-        self.session_memory.add_message(
-            role="tool",
-            content=content,
-            metadata={"tool_call_id": tool_call_id, "tool_name": tool_name},
-        )
-        
-        # 记录当前消息状态
-        logger.LOG_DEBUG(f"[_execute_tool] Tool executed, message added to session")
+        # 直接返回 ToolResult，不做类型转换
+        return result
 
     def set_tool_wrapper(self, wrapper: ToolWrapper) -> None:
         """设置工具包装器

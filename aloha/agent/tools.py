@@ -103,11 +103,14 @@ class ToolRegistry:
         """获取所有工具的 OpenAI 格式 schema"""
         return [tool.to_openai_schema() for tool in self._tools.values()]
 
-    async def execute_tool(self, name: str, **kwargs) -> Any:
-        """执行工具"""
+    async def execute(self, name: str, **kwargs) -> ToolResult:
+        """执行工具
+        
+        找不到工具时抛出异常，告诉 LLM 系统没有该工具。
+        """
         tool = self.get(name)
         if not tool:
-            return {"success": False, "error": f"Tool '{name}' not found"}
+            raise ValueError(f"Tool '{name}' not found")
         return await tool.execute(**kwargs)
 
     def __len__(self) -> int:

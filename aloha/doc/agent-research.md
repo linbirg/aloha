@@ -1790,3 +1790,579 @@ Anthropic Claude Agent SDK 的核心特点：
 - 可以借鉴其权限控制设计
 - 可以学习其消息类型系统
 - 不需要完全使用 Claude Code，Aloha 可以保持独立的 LLM 提供商支持
+
+---
+
+# 第六部分：NanoBot 项目分析
+
+## 项目概览
+
+NanoBot 是 OpenClaw 的超轻量级 Python 实现。
+
+- **GitHub**: https://github.com/HKUDS/nanobot
+- **Stars**: 36,681
+- **语言**: Python
+- **描述**: "nanobot: The Ultra-Lightweight OpenClaw"
+
+## 核心数据
+
+- **代码行数**: 比 OpenClaw 少 99%
+- **架构**: 超轻量级设计
+- **特点**: 实时代码行数统计脚本 (`core_agent_lines.sh`)
+
+## 项目结构
+
+```
+nanobot/
+├── agent/               # 核心 Agent 逻辑
+│   ├── loop.py         # Agent 循环 (LLM → 工具执行)
+│   ├── context.py      # Prompt 构建器
+│   ├── memory.py       # 持久化内存
+│   ├── skills.py       # Skills 加载器
+│   ├── subagent.py     # 后台任务执行
+│   └── tools/          # 内置工具 (spawn 等)
+├── skills/             # 捆绑的 skills (github, weather, tmux...)
+├── channels/            # 聊天渠道集成 (支持插件)
+│   ├── telegram.py
+│   ├── discord.py
+│   ├── slack.py
+│   ├── whatsapp.py
+│   ├── weixin.py
+│   ├── feishu.py
+│   ├── dingtalk.py
+│   ├── qq.py
+│   └── ...
+├── bus/                 # 消息路由
+├── cron/               # 定时任务
+├── heartbeat/          # 主动唤醒
+├── providers/          # LLM 提供商
+├── session/            # 对话会话
+├── config/             # 配置
+└── cli/                # 命令
+```
+
+## 核心模块分析
+
+### 1. AgentLoop (agent/loop.py)
+
+```python
+class AgentLoop:
+    """
+    The agent loop is the core processing engine.
+    
+    It:
+    1. Receives messages from the bus
+    2. Builds context with history, memory, skills
+    3. Calls the LLM
+    4. Executes tool calls
+    5. Sends responses back
+    """
+
+    def __init__(self, bus, provider, workspace, ...):
+        self.bus = bus
+        self.provider = provider
+        self.workspace = workspace
+        self.tools = ToolRegistry()
+        self.runner = AgentRunner(provider)
+        self.subagents = SubagentManager(...)
+        self.sessions = session_manager or SessionManager(workspace)
+        self.memory_consolidator = MemoryConsolidator(...)
+```
+
+**核心功能**:
+- 消息接收与处理
+- 上下文构建 (历史 + 内存 + skills)
+- LLM 调用与工具执行
+- 流式输出支持
+- 会话管理
+
+### 2. ToolRegistry (agent/tools/registry.py)
+
+```python
+class ToolRegistry:
+    """Registry for agent tools."""
+    
+    def __init__(self):
+        self._tools: dict[str, Tool] = {}
+    
+    def register(self, tool: Tool) -> None:
+        self._tools[tool.name] = tool
+    
+    def execute(self, name: str, params: dict) -> Any:
+        tool = self._tools.get(name)
+        if not tool:
+            return f"Error: Tool '{name}' not found..."
+        
+        # 参数类型转换
+        params = tool.cast_params(params)
+        
+        # 参数验证
+        errors = tool.validate_params(params)
+        if errors:
+            return f"Error: Invalid parameters..."
+        
+        return await tool.execute(**params)
+    
+    def get_definitions(self) -> list[dict]:
+        return [tool.to_schema() for tool in self._tools.values()]
+```
+
+### 3. 工具系统
+
+内置工具:
+- `filesystem`: Read, Write, Edit, ListDir
+- `shell`: Exec (执行 shell 命令)
+- `message`: 发送消息
+- `web`: WebSearch, WebFetch
+- `mcp`: MCP 工具
+- `cron`: 定时任务
+- `spawn`: 启动子进程
+
+### 4. 消息渠道 (channels/)
+
+支持 12+ 渠道:
+- Telegram
+- Discord
+- Slack
+- WhatsApp
+- WeChat (微信)
+- Feishu (飞书)
+- DingTalk (钉钉)
+- QQ
+- WeCom (企业微信)
+- Email
+- Matrix
+- MoChat
+
+### 5. Provider 系统
+
+```python
+# 支持的提供商
+- Anthropic
+- OpenAI (including Codex)
+- Azure OpenAI
+- OpenRouter
+- Ollama
+- VolcEngine
+- StepFun
+- Gemini
+```
+
+### 6. 内存系统
+
+```python
+class MemoryConsolidator:
+    """持久化内存管理"""
+    
+    def __init__(self, workspace, provider, model, sessions, ...):
+        self.workspace = workspace
+        # 支持长期记忆和会话记忆
+```
+
+### 7. Skills 系统
+
+```python
+# 内置 Skills
+- github: GitHub 操作
+- weather: 天气查询
+- tmux: tmux 会话管理
+- memory: 记忆管理
+- cron: 定时任务
+- summarize: 摘要生成
+- skill-creator: 技能创建
+```
+
+### 8. Hook 系统
+
+```python
+class AgentHook:
+    """生命周期钩子"""
+    
+    # 支持的钩子:
+    # - on_start
+    # - on_message
+    # - on_tool_call
+    # - on_tool_result
+    # - on_response
+    # - on_error
+    # - on_end
+```
+
+### 9. 子代理 (Subagent)
+
+```python
+class SubagentManager:
+    """后台任务执行"""
+    
+    def run_async(self, prompt, session_key, ...):
+        # 在后台执行任务
+```
+
+## 配置系统
+
+### Config Schema
+
+```python
+# 支持的配置
+- channels: 渠道配置
+- providers: LLM 提供商
+- exec: 执行工具配置
+- web_search: 搜索配置
+- mcp_servers: MCP 服务器
+- timezone: 时区
+```
+
+### 配置加载
+
+```python
+class ConfigLoader:
+    # 支持 JSON, TOML, YAML
+    # 环境变量覆盖
+    # 默认值
+```
+
+## 与 Aloha 对比
+
+| 特性 | NanoBot | Aloha |
+|------|---------|-------|
+| **Stars** | 36,681 | - |
+| **语言** | Python | Python |
+| **消息渠道** | 12+ | 无 |
+| **Provider** | 8+ | 2 (OpenAI, Anthropic) |
+| **工具注册** | ToolRegistry | 基础注册 |
+| **Skills** | 内置 7+ | 基础 |
+| **内存** | MemoryConsolidator | session_memory |
+| **子代理** | SubagentManager | 无 |
+| **Hook** | 完整 | 基础 |
+| **代码行数** | ~10k (OpenClaw 的 1%) | ~5k |
+
+## 可借鉴设计
+
+### 1. 多渠道接入
+
+```python
+# 统一的渠道接口
+class Channel(ABC):
+    @abstractmethod
+    async def connect(self): ...
+    @abstractmethod
+    async def send_message(self, chat_id, content): ...
+    @abstractmethod
+    async def on_message(self, message): ...
+```
+
+### 2. Provider 抽象
+
+```python
+class LLMProvider(ABC):
+    @abstractmethod
+    async def chat(self, messages, tools, model): ...
+    
+    def get_default_model(self): ...
+    def get_generation_config(self): ...
+```
+
+### 3. Tool 基类
+
+```python
+class Tool:
+    name: str
+    description: str
+    
+    @abstractmethod
+    async def execute(self, **params): ...
+    
+    def to_schema(self) -> dict: ...
+    def cast_params(self, params: dict) -> dict: ...
+    def validate_params(self, params: dict) -> list[str]: ...
+```
+
+### 4. 命令路由
+
+```python
+class CommandRouter:
+    def register(self, command: str, handler): ...
+    async def dispatch(self, message): ...
+```
+
+### 5. 配置分层
+
+```python
+# 默认 → 文件 → 环境变量 → CLI 参数
+```
+
+## NanoBot vs NanoClaw vs Aloha
+
+| 特性 | NanoBot (Python) | NanoClaw (TypeScript) | Aloha |
+|------|------------------|----------------------|-------|
+| **Stars** | 36,681 | 25,761 | - |
+| **架构** | 本地进程 | Docker 容器 | 本地进程 |
+| **消息渠道** | 12+ | 5+ | 无 |
+| **Provider** | 8+ | Anthropic | 2 |
+| **代码量** | 极简 | 中等 | 最简 |
+
+## 总结
+
+NanoBot 是一个成功的"减法"案例:
+- 保留核心功能 (LLM + Tools + Memory)
+- 去掉复杂特性 (容器、复杂权限)
+- 支持多渠道接入
+- 保持代码极简
+
+**对 Aloha 的启示**:
+1. 优先实现核心功能
+2. 轻量级设计
+3. 可扩展的渠道系统
+4. Provider 抽象支持多 LLM
+
+---
+
+# 第七部分：ClawTeam 项目分析 - Agent Swarm Intelligence
+
+## 项目概览
+
+ClawTeam 是 HKUDS 下的多 Agent 编排系统，名为 "Agent Swarm Intelligence"。
+
+- **GitHub**: https://github.com/HKUDS/ClawTeam
+- **Stars**: 3,853
+- **语言**: Python
+- **描述**: "ClawTeam: Agent Swarm Intelligence (One Command → Full Automation)"
+
+## 核心理念
+
+```
+Solo → Swarm
+AI Agents 形成蜂群，协同工作，交付结果
+人类提供目标，Agent 团队编排其余一切
+```
+
+## 核心特性
+
+### 1. 架构设计
+
+- **兼容多种 CLI Agent**: Claude Code, Codex, OpenClaw, nanobot, Cursor 等
+- **无服务器/无数据库**: 所有状态存储在 `~/.clawteam/` 的 JSON 文件中
+- **原子写入**: `tmp + rename` 保证崩溃安全
+
+### 2. 核心模块
+
+```
+clawteam/
+├── spawn/               # Agent  Spawn (启动子进程)
+│   ├── base.py         # 基础 Spawn 接口
+│   ├── tmux_backend.py # tmux 后端
+│   ├── subprocess_backend.py
+│   ├── profiles.py     # Agent 配置文件
+│   └── registry.py     # Agent 注册表
+├── team/               # Team Management
+│   ├── manager.py      # 团队管理器
+│   ├── tasks.py       # 任务管理
+│   ├── mailbox.py     # 消息邮箱
+│   ├── lifecycle.py   # 生命周期
+│   └── costs.py        # 成本跟踪
+├── mcp/                # MCP Tools
+│   ├── tools/
+│   │   ├── board.py    # 看板工具
+│   │   ├── task.py     # 任务工具
+│   │   ├── team.py     # 团队工具
+│   │   ├── workspace.py # 工作区工具
+│   │   └── plan.py    # 计划工具
+├── board/              # 可视化看板
+├── workspace/          # 工作区管理
+├── transport/           # 消息传输
+│   ├── file.py         # 文件传输 (默认)
+│   └── p2p.py         # ZeroMQ P2P
+└── cli/                 # 命令行
+```
+
+### 3. 工作流程
+
+```
+用户: "完成这个项目" 
+    ↓
+Team Manager (团队管理)
+    ↓
+Task Distribution (任务分发)
+    ↓
+Inboxes (各个 Agent 的邮箱)
+    ↓
+Agent Execution (Agent 执行)
+    ↓
+Result Collection (结果收集)
+    ↓
+Human: "完成!"
+```
+
+### 4. 消息系统 (Mailbox)
+
+```python
+# 每个 Agent 有自己的 inbox
+~/.clawteam/
+├── teams/
+│   └── (who)        # 团队成员
+├── tasks/
+│   └── (what)       # 任务
+├── inboxes/
+│   └── (talk)       # Agent 间通信
+└── workspaces/
+    └── (isolated code)  # 隔离的代码
+```
+
+### 5. 任务分发
+
+```python
+# 任务委派流程
+1. Leader Agent 分析任务
+2. 分解为子任务
+3. 分发给 Worker Agents
+4. Workers 通过 inbox 接收指令
+5. 执行并报告结果
+```
+
+### 6. 传输层
+
+| Transport | 工作方式 | 适用场景 |
+|-----------|---------|----------|
+| **file** (默认) | JSON 文件在 inbox 目录 | 单机，共享文件系统 |
+| **p2p** | ZeroMQ PUSH/PULL + 文件回退 | 低延迟，自动回退 |
+
+### 7. 调度系统
+
+```python
+# 支持的后端
+- tmux (默认)
+- subprocess
+
+# 配置选项
+clawteam spawn --backend tmux --command claude
+clawteam spawn --no-workspace
+clawteam spawn --no-skip-permissions
+```
+
+### 8. 可视化看板
+
+```python
+# Web UI 看板
+- 任务状态
+- Agent 状态
+- 工作区状态
+- 成本跟踪
+```
+
+### 9. 团队模板
+
+```python
+# TOML 模板定义
+# 自定义科学研究团队
+# 个性化投资委员会
+# 业务工作流自动化
+```
+
+## 与其他项目的对比
+
+| 特性 | ClawTeam | NanoBot | Aloha |
+|------|----------|---------|-------|
+| **Stars** | 3,853 | 36,681 | - |
+| **架构** | 多 Agent 编排 | 单 Agent | 单 Agent |
+| **通信** | Mailbox + P2P | Message Bus | 内置 |
+| **状态** | JSON 文件 | SQLite | 内存 |
+| **UI** | Web 看板 | 无 | Gradio |
+| **Agent** | 外部 CLI | 内部循环 | 内部循环 |
+
+## 使用场景
+
+### 1. AI 研究自动化
+
+- 8-Agent Swarm
+- 8 H100 GPUs
+- 2430 experiments
+- One CLI → One Swarm
+
+### 2. 全栈开发
+
+- 自主全栈开发
+- 自演进软件
+- 协作开源开发
+- 实时系统集成
+
+### 3. AI 对冲基金
+
+- 自动市场研究
+- 多策略组合优化
+- 实时风险评估
+- 算法交易执行
+
+## 路线图
+
+| Phase | 版本 | 内容 | 状态 |
+|-------|------|------|------|
+| Current | v0.3 | File + P2P transport, Web UI, multi-user | ✅ |
+| Phase 1 | v0.4 | Redis Transport (跨机器) | 📅 |
+| Phase 2 | v0.5 | Shared State Layer | 📅 |
+| Phase 3 | v0.6 | Agent Marketplace | 🔭 |
+| Phase 4 | v0.7 | Adaptive Scheduling | 🔭 |
+| Phase 5 | v1.0 | Production-grade | 🔭 |
+
+## 可借鉴设计
+
+### 1. Mailbox 消息系统
+
+```python
+# 分离的 Agent 通信
+class Mailbox:
+    inbox: str      # 接收指令
+    outbox: str     # 发送结果
+    shared: str     # 共享状态
+```
+
+### 2. 任务队列 + 分布式执行
+
+```python
+# 任务分发
+TaskQueue
+    → Assign to Agent
+    → Execute
+    → Report
+    → Collect Results
+```
+
+### 3. 无状态设计
+
+```python
+# 所有状态 JSON 文件
+# 原子写入 (tmp + rename)
+# 无需数据库
+```
+
+### 4. 多后端支持
+
+```python
+# 可插拔的后端
+- tmux
+- subprocess
+- (future: Redis, NATS)
+```
+
+### 5. 团队模板
+
+```python
+# TOML 定义团队
+[team]
+name = "research"
+agents = ["leader", "worker1", "worker2"]
+```
+
+## 总结
+
+ClawTeam 是一个创新的多 Agent 编排系统：
+
+1. **简单可靠** - 无服务器，JSON 文件状态
+2. **灵活扩展** - 支持多种 Agent 和传输层
+3. **真实可用** - 已在实际场景中使用 (AI Research, Hedge Fund)
+4. **开源生态** - 兼容 Claude Code, Codex 等主流工具
+
+**对 Aloha 的启示**:
+1. 可以实现类似的多 Agent 架构
+2. Mailbox 系统是简洁的进程间通信方式
+3. JSON 文件是轻量级的状态存储方案
+4. 团队模板是可配置性的好例子

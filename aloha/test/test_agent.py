@@ -120,7 +120,7 @@ class TestTools:
         registry.register(tool)
 
         import asyncio
-        result = asyncio.run(registry.execute_tool("echo", text="Hello"))
+        result = asyncio.run(registry.execute("echo", text="Hello"))
 
         assert result.success is True
         assert "Hello" in result.content
