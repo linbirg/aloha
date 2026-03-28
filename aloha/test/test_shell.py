@@ -1,9 +1,11 @@
 """测试 Shell 工具"""
 
 import asyncio
+import pytest
 from aloha.tools import ShellTool
 
 
+@pytest.mark.asyncio
 async def test_shell():
     tool = ShellTool()
     

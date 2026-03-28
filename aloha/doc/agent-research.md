@@ -1277,3 +1277,516 @@ for await (const event of agentLoopContinue(context, config)) {
 - 参考其扩展机制实现 Aloha 的扩展系统
 - 会话管理机制可以直接学习
 - 不需要完全基于 pi 重写，Aloha 可以保持 Python 路线，吸收其设计思想
+
+---
+
+# 第三部分：NanoClaw 项目分析
+
+## 项目概览
+
+NanoClaw 是 OpenClaw 的轻量级替代方案，在 Docker 容器中运行以保证安全。
+
+- **仓库**: https://github.com/qwibitai/nanoclaw
+- **语言**: TypeScript + Node.js
+- **Stars**: 25,761
+- **Forks**: 9,277
+
+## 核心架构对比
+
+| 特性 | NanoClaw (TypeScript) | Aloha (Python) |
+|------|----------------------|----------------|
+| **语言** | TypeScript + Node.js | Python |
+| **运行环境** | Docker 容器隔离 | 本地进程 |
+| **Agent SDK** | Anthropic Agents SDK (@onecli-sh/sdk) | 自研 ReActLoop |
+| **消息集成** | 多渠道 (Telegram, Discord, Slack, WhatsApp, Gmail) | 基础 ShellTool + WebTool |
+| **状态管理** | SQLite + 文件系统 | 内存 + 持久化 |
+| **隔离机制** | 容器级隔离 + IPC 命名空间 | ToolWrapper 安全检查 |
+| **技能系统** | .claude/skills 目录 | 自研 skills 机制 |
+
+## NanoClaw 核心模块分析
+
+### 1. 容器化执行 (container-runner.ts)
+
+```typescript
+function buildVolumeMounts(
+  group: RegisteredGroup,
+  isMain: boolean,
+): VolumeMount[] {
+  // Main gets the project root read-only
+  mounts.push({
+    hostPath: projectRoot,
+    containerPath: '/workspace/project',
+    readonly: true,
+  });
+
+  // Shadow .env so the agent cannot read secrets
+  const envFile = path.join(projectRoot, '.env');
+  if (fs.existsSync(envFile)) {
+    mounts.push({
+      hostPath: '/dev/null',
+      containerPath: '/workspace/project/.env',
+      readonly: true,
+    });
+  }
+
+  // Per-group IPC namespace: each group gets its own IPC directory
+  // This prevents cross-group privilege escalation via IPC
+  const groupIpcDir = resolveGroupIpcPath(group.folder);
+}
+```
+
+**关键设计**:
+- 项目根目录只读挂载，防止 agent 修改源代码
+- .env 文件阴影挂载，防止读取宿主机密钥
+- 每组独立的 IPC 目录，防止跨组权限提升
+- 每组独立的 .claude 会话目录（隔离会话状态）
+
+### 2. 消息路由 (src/index.ts)
+
+```typescript
+// 多 channel 注册机制
+for (const channelName of getRegisteredChannelNames()) {
+  const factory = getChannelFactory(channelName)!;
+  const channel = factory(channelOpts);
+  channels.push(channel);
+  await channel.connect();
+}
+
+// sender-allowlist 过滤
+if (shouldDropMessage(chatJid, cfg) &&
+    !isSenderAllowed(chatJid, msg.sender, cfg)) {
+  return; // 丢弃消息
+}
+```
+
+### 3. 任务调度 (task-scheduler.ts)
+
+```typescript
+startSchedulerLoop({
+  registeredGroups: () => registeredGroups,
+  getSessions: () => sessions,
+  queue,
+  onProcess: (groupJid, proc, containerName, groupFolder) =>
+    queue.registerProcess(groupJid, proc, containerName, groupFolder),
+  sendMessage: async (jid, rawText) => { /* ... */ },
+});
+```
+
+### 4. 数据库 (src/db.ts)
+
+- SQLite 存储会话、消息、任务
+- 消息游标管理，支持断点续传
+
+## NanoClaw 值得借鉴的设计
+
+1. **容器化沙箱**
+   - 将 agent 执行放入 Docker 容器
+   - 隔离文件系统访问
+   - 只读挂载敏感路径
+
+2. **多消息渠道**
+   - 支持 Telegram/Discord/Slack/WhatsApp/Gmail
+   - 统一的 channel 接口
+
+3. **IPC 机制**
+   - 组间隔离的进程间通信
+   - 通过文件进行进程间消息传递
+
+4. **任务调度**
+   - 定时任务执行能力
+   - 支持 cron 表达式
+
+5. **状态持久化**
+   - 使用 SQLite 替代内存存储
+   - 消息游标管理
+
+## 对 Aloha 的建议
+
+Aloha 目前是轻量级的单代理框架，NanoClaw 是完整的多租户消息代理系统。
+
+**短期可借鉴**:
+- 使用 SQLite 进行状态持久化
+- 添加任务调度模块
+- 消息队列机制
+
+**长期可借鉴**:
+- 容器化沙箱设计
+- 多渠道消息接入
+- 组间隔离机制
+
+**不需要借鉴**:
+- 完全重写为 TypeScript - Aloha 可以保持 Python 路线
+- 复制全部功能 - 聚焦核心场景
+
+---
+
+# 第四部分：OneCLI SDK 分析
+
+## 项目概览
+
+`@onecli-sh/sdk` 是 OneCLI 官方 Node.js SDK，用于将 AI agents 连接到外部服务。
+
+- **npm 包**: https://registry.npmjs.org/@onecli-sh/sdk
+- **版本**: 0.2.0
+- **GitHub**: https://github.com/onecli/node-sdk
+- **描述**: Official Node.js SDK for OneCLI. Connect AI agents to external services via the OneCLI proxy.
+
+## OneCLI 是什么？
+
+OneCLI 是一个**凭证保险库 (Credential Vault)**，为 AI agents 提供对服务的访问权限，而无需暴露密钥。
+
+- **仓库**: https://github.com/onecli/onecli
+- **Stars**: 1,396
+- **描述**: Open-source credential vault, give your AI agents access to services without exposing keys.
+
+## 核心功能
+
+### 1. 代理配置 (Proxy Configuration)
+
+```typescript
+import { OneCLI } from "@onecli-sh/sdk";
+
+const onecli = new OneCLI();
+
+// 获取容器配置
+const config = await onecli.getContainerConfig();
+// Returns: { env, caCertificate, caCertificateContainerPath }
+```
+
+### 2. 自动应用配置到 Docker
+
+```typescript
+const args = ["run", "-i", "--rm", "--name", "my-agent"];
+const active = await onecli.applyContainerConfig(args);
+// args now contains proxy env vars and CA certificate mounts
+```
+
+### 3. 支持的功能
+
+- **环境变量注入**: 自动注入代理相关的环境变量 (HTTPS_PROXY, HTTP_PROXY 等)
+- **CA 证书挂载**: 将 OneCLI CA 证书挂载到容器中
+- **组合 CA Bundle**: 合并系统和 OneCLI 的 CA 证书
+- **Host 映射**: 在 Linux 上添加 `host.docker.internal` 映射
+
+## 配置选项
+
+### OneCLI 构造参数
+
+| 参数 | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| apiKey | string | ONECLI_API_KEY env | 用户 API key (oc_...) |
+| url | string | ONECLI_URL 或 https://app.onecli.sh | OneCLI 实例 URL |
+| timeout | number | 5000 | 请求超时 (毫秒) |
+
+### applyContainerConfig 选项
+
+| 参数 | 默认值 | 描述 |
+|------|--------|------|
+| combineCaBundle | true | 合并系统 + OneCLI CA |
+| addHostMapping | true | 在 Linux 上添加 --add-host |
+
+## 工作原理
+
+OneCLI 充当容器化 agents 的 MITM 代理。当容器向被拦截的域名 (如 `api.anthropic.com`) 发起 HTTPS 请求时，OneCLI:
+
+1. 使用本地 CA 证书终止 TLS
+2. 检查请求并注入真实凭证
+3. 将请求转发到上游服务
+
+**容器永远看不到真实的 API keys。** SDK 配置容器使用正确的环境变量和 CA 证书挂载，使这一切自动工作。
+
+## NanoClaw 中的使用
+
+从 NanoClaw 的 `package.json` 可以看到:
+
+```json
+{
+  "dependencies": {
+    "@onecli-sh/sdk": "^0.2.0",
+    "better-sqlite3": "11.10.0",
+    "cron-parser": "5.5.0"
+  }
+}
+```
+
+在代码中:
+
+```typescript
+import { OneCLI } from '@onecli-sh/sdk';
+
+const onecli = new OneCLI({ url: ONECLI_URL });
+
+function ensureOneCLIAgent(jid: string, group: RegisteredGroup): void {
+  if (group.isMain) return;
+  const identifier = group.folder.toLowerCase().replace(/_/g, '-');
+  onecli.ensureAgent({ name: group.name, identifier }).then(
+    (res) => { /* ... */ }
+  );
+}
+```
+
+## 对 Aloha 的启示
+
+### OneCLI 解决的问题
+
+1. **凭证泄露风险**: 容器内的 agent 不需要知道真实的 API keys
+2. **凭证轮换**: 可以在 OneCLI 中轮换凭证而不影响 agent 代码
+3. **审计**: 所有 API 请求都经过 OneCLI，可以审计和日志记录
+
+### Aloha 可以借鉴的设计
+
+1. **凭证管理**: 考虑实现类似的凭证代理机制
+2. **API 代理**: 可以实现一个简单的代理层来注入凭证
+3. **请求拦截**: 拦截 LLM API 调用并注入凭证，而不是直接使用环境变量
+
+### 当前 Aloha 的实现
+
+Aloha 当前直接在 `OpenAIProvider` 中使用 `api_key`:
+
+```python
+# aloha/providers/openai_provider.py
+self.client = OpenAI(
+    api_key=api_key,
+    base_url=base_url,
+    # ...
+)
+```
+
+**可以改进的方向**:
+- 将 API key 存储在外部配置文件或环境变量
+- 实现凭证管理模块
+- 未来可以考虑类似 OneCLI 的代理机制
+
+---
+
+# 第五部分：Anthropic Claude Agent SDK for Python 分析
+
+## 项目概览
+
+Anthropic 官方的 Python SDK，用于与 Claude Agent 交互。
+
+- **GitHub**: https://github.com/anthropics/claude-agent-sdk-python
+- **Stars**: 5,906
+- **描述**: Python SDK for Claude Agent
+- **文档**: https://platform.claude.com/docs/en/agent-sdk/python
+
+## 核心设计
+
+### 1. 架构概述
+
+```
+┌─────────────────────────────────────────────┐
+│         Claude Agent SDK for Python         │
+├─────────────────────────────────────────────┤
+│  query() / ClaudeSDKClient                 │
+│         ↓                                    │
+│  Claude Code CLI (bundled)                   │
+│         ↓                                    │
+│  Tools: Read, Write, Edit, Bash, etc.      │
+└─────────────────────────────────────────────┘
+```
+
+### 2. 核心 API
+
+#### query() - 异步迭代器
+
+```python
+import anyio
+from claude_agent_sdk import query
+
+async def main():
+    async for message in query(prompt="What is 2 + 2?"):
+        print(message)
+
+anyio.run(main)
+```
+
+- 返回 `AsyncIterator` of response messages
+- 支持流式输出
+
+#### ClaudeSDKClient - 双向交互
+
+```python
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+
+options = ClaudeAgentOptions(
+    system_prompt="You are a helpful assistant",
+    max_turns=1
+)
+
+async with ClaudeSDKClient(options=options) as client:
+    await client.query("Hello")
+    async for msg in client.receive_response():
+        print(msg)
+```
+
+- 支持 **自定义工具** (In-Process MCP Servers)
+- 支持 **Hooks** (事件钩子)
+- 支持双向交互
+
+### 3. 自定义工具 (In-Process MCP)
+
+```python
+from claude_agent_sdk import tool, create_sdk_mcp_server, ClaudeAgentOptions
+
+# 定义工具
+@tool("greet", "Greet a user", {"name": str})
+async def greet_user(args):
+    return {
+        "content": [
+            {"type": "text", "text": f"Hello, {args['name']}!"}
+        ]
+    }
+
+# 创建 MCP 服务器
+server = create_sdk_mcp_server(
+    name="my-tools",
+    version="1.0.0",
+    tools=[greet_user]
+)
+
+# 使用
+options = ClaudeAgentOptions(
+    mcp_servers={"tools": server},
+    allowed_tools=["mcp__tools__greet"]
+)
+
+async with ClaudeSDKClient(options=options) as client:
+    await client.query("Greet Alice")
+```
+
+**优势**:
+- 无子进程管理 - 运行在同一进程中
+- 更好的性能 - 无 IPC 开销
+- 更简单的部署 - 单个 Python 进程
+- 更容易调试 - 所有代码在同一进程
+
+### 4. Hooks 系统
+
+```python
+async def on_tool_call(tool_name, args):
+    print(f"Tool called: {tool_name}")
+    return None  # 允许执行
+
+async def on_tool_result(tool_name, result):
+    print(f"Tool result: {result}")
+    return result
+
+options = ClaudeAgentOptions(
+    hooks={
+        "on_tool_call": on_tool_call,
+        "on_tool_result": on_tool_result,
+    }
+)
+```
+
+### 5. 权限控制
+
+```python
+options = ClaudeAgentOptions(
+    allowed_tools=["Read", "Write", "Bash"],  # 自动批准这些工具
+    permission_mode='acceptEdits',  # 自动接受文件编辑
+    disallowed_tools=["Bash:rm"],  # 禁止特定命令
+)
+
+async for message in query(prompt="...", options=options):
+    pass
+```
+
+### 6. ClaudeAgentOptions 配置
+
+| 参数 | 类型 | 描述 |
+|------|------|------|
+| system_prompt | str | 系统提示 |
+| max_turns | int | 最大轮次 |
+| allowed_tools | list[str] | 允许的工具列表 |
+| disallowed_tools | list[str] | 禁止的工具列表 |
+| permission_mode | str | 权限模式 |
+| mcp_servers | dict | MCP 服务器配置 |
+| hooks | dict | 钩子函数 |
+| cwd | str/Path | 工作目录 |
+| cli_path | str | 自定义 CLI 路径 |
+
+### 7. 消息类型
+
+- `AssistantMessage` - 助手消息
+- `UserMessage` - 用户消息
+- `SystemMessage` - 系统消息
+- `ResultMessage` - 工具结果
+
+内容块:
+- `TextBlock` - 文本
+- `ToolUseBlock` - 工具调用
+- `ToolResultBlock` - 工具结果
+
+## 与 Aloha 对比
+
+| 特性 | Claude Agent SDK | Aloha (自研) |
+|------|------------------|--------------|
+| **底层** | Claude Code CLI | OpenAI API |
+| **工具集** | 内置完整工具链 | 自定义工具 |
+| **架构** | 进程封装 | 直接 API 调用 |
+| **自定义工具** | MCP In-Process | 自定义注册 |
+| **权限控制** | 细粒度 allow/disallow | SecurityConfig |
+| **Hooks** | on_tool_call/result | ToolWrapper |
+| **状态管理** | 内置 Session | session_memory |
+| **部署** | 需要 Claude Code | 纯 Python |
+
+## 可借鉴设计
+
+### 1. In-Process MCP 工具系统
+
+Aloha 可以实现类似的自定义工具注册机制：
+- Python 函数直接作为工具
+- 类型提示自动生成工具 schema
+- 装饰器模式
+
+### 2. Hooks 拦截系统
+
+```python
+# Aloha 可以借鉴的钩子模式
+@tool_hook("before_execute")
+def log_tool_call(tool_name, args):
+    logger.info(f"Tool called: {tool_name}")
+```
+
+### 3. 权限控制层次
+
+```
+allowed_tools (白名单)
+    ↓
+disallowed_tools (黑名单)
+    ↓
+permission_mode (模式)
+    ↓
+can_use_tool (回调)
+```
+
+### 4. 消息类型系统
+
+```python
+# 统一的消息类型
+class Message(BaseModel):
+    role: Literal["user", "assistant", "system", "tool"]
+    content: str
+
+class ToolUseBlock(BaseModel):
+    id: str
+    name: str
+    input: dict
+```
+
+## 总结
+
+Anthropic Claude Agent SDK 的核心特点：
+1. **封装 Claude Code CLI** - 利用现有桌面工具的能力
+2. **In-Process MCP** - 无需子进程的自定义工具
+3. **完整的权限系统** - 细粒度的工具控制
+4. **Hooks 机制** - 全生命周期的拦截点
+5. **类型安全** - 完整的类型提示
+
+**对 Aloha 的启示**:
+- 可以参考其工具注册模式
+- 可以借鉴其权限控制设计
+- 可以学习其消息类型系统
+- 不需要完全使用 Claude Code，Aloha 可以保持独立的 LLM 提供商支持

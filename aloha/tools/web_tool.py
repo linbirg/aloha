@@ -24,7 +24,16 @@ class WebTool(BaseTool):
         self.rate_limit = rate_limit
         self._session: aiohttp.ClientSession | None = None
         self._request_count = 0
-        self._last_reset = asyncio.get_event_loop().time()
+        self._last_reset: float | None = None
+
+    def _get_last_reset(self) -> float:
+        """延迟初始化 _last_reset"""
+        if self._last_reset is None:
+            self._last_reset = asyncio.get_event_loop().time()
+        return self._last_reset
+
+    def _set_last_reset(self, value: float):
+        self._last_reset = value
 
     async def execute(self, url: str, method: str = "GET", data: str = "") -> ToolResult:
         """执行 HTTP 请求"""
@@ -85,12 +94,13 @@ class WebTool(BaseTool):
     def _check_rate_limit(self) -> bool:
         """检查速率限制"""
         current_time = asyncio.get_event_loop().time()
-        elapsed = current_time - self._last_reset
+        last_reset = self._get_last_reset()
+        elapsed = current_time - last_reset
 
         # 每分钟重置计数器
         if elapsed > 60:
             self._request_count = 0
-            self._last_reset = current_time
+            self._set_last_reset(current_time)
 
         return self._request_count < self.rate_limit
 
