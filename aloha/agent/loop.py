@@ -63,34 +63,43 @@ class ReActLoop(Agent):
             self._tool_wrapper = ToolWrapper(self.tools, SecurityConfig(), enable_security=True)
 
     async def process(self, user_input: str) -> str:
-        """处理单次用户输入"""
+        """处理单次用户输入
+        
+        主循环：
+        1. 添加用户消息到 session
+        2. 调用 LLM
+        3. 如果有工具调用，执行工具并添加工具结果
+        4. 重复步骤 2-3 直到没有工具调用或达到最大迭代次数
+        """
         # 清空上次的思考日志
         self.thought_logs = []
         
         # 添加用户消息到记忆
         self.session_memory.add_user_message(user_input)
-
-        # 构建消息列表
-        messages = self._build_messages()
-
-        # 记录 LLM 调用
-        self.thought_logs.append(f"🤖 调用 LLM (model: {self.model})...")
         
-        # 调用 LLM
-        tools_schema = self.get_tools_schema()
-        response = await self.provider.chat_with_tools(
-            messages=messages,
-            tools=tools_schema if tools_schema else None,
-            model=self.model,
-        )
-
-        # 记录 LLM 回复
-        self.thought_logs.append(f"💬 LLM 回复: {response.content[:100]}...")
-
-        # 处理响应
-        result = await self._handle_response(response)
+        # 主循环：直到没有工具调用或达到最大迭代次数
+        iteration = 0
+        response = None
         
-        return result
+        while iteration < self.max_iterations:
+            iteration += 1
+            
+            # 调用 LLM
+            response = await self._call_llm()
+            
+            # 检查是否有工具调用
+            if not response.tool_calls:
+                # 没有工具调用，直接返回结果
+                break
+            
+            # 有工具调用，执行工具
+            logger.LOG_DEBUG(f"[process] Iteration {iteration}/{self.max_iterations}, tool_calls: {[tc.id for tc in response.tool_calls]}")
+            await self._execute_all_tools(response.tool_calls)
+        
+        if iteration >= self.max_iterations:
+            logger.LOG_DEBUG(f"[process] Max iterations ({self.max_iterations}) reached")
+        
+        return response.content if response else ""
     
     def get_thought_logs(self) -> list[str]:
         """获取思考日志"""
@@ -109,84 +118,78 @@ class ReActLoop(Agent):
 
         return messages
 
-    async def _handle_response(self, response: Response) -> str:
-        """处理 LLM 响应
+    async def _execute_all_tools(self, tool_calls) -> None:
+        """执行所有工具调用
         
-        参照 NanoBot 的实现：
-        - 使用 max_iterations 作为整体迭代限制
-        - 所有工具结果（包括失败）都添加工具消息
-        - 工具异常时终止调用，将异常作为消息结果
+        依次执行每个工具调用，将结果添加工具消息到 session。
+        工具执行异常会作为错误消息添加到 session，然后让 LLM 继续处理。
         """
-        # 添加助手消息到记忆
-        self.session_memory.add_assistant_message(response.content)
+        for tool_call in tool_calls:
+            self.thought_logs.append(f"🛠️ 调用工具: {tool_call.name}")
+            self.thought_logs.append(f"📝 参数: {tool_call.arguments}")
 
-        # 使用 max_iterations 作为整体迭代次数限制
-        iteration = 0
-        
-        while response.tool_calls and iteration < self.max_iterations:
-            iteration += 1
-            logger.LOG_DEBUG(f"[_handle_response] Iteration {iteration}/{self.max_iterations}, tool_calls: {[tc.id for tc in response.tool_calls]}")
-            
-            # 执行所有工具调用，收集结果
-            tool_execution_error = None
-            for tool_call in response.tool_calls:
-                try:
-                    # 调用纯函数获取结果
-                    result = await self._execute_tool(tool_call)
-                except Exception as e:
-                    # 工具执行异常，交给上层处理
-                    tool_execution_error = e
-                    logger.LOG_DEBUG(f"[_handle_response] Tool execution exception: {e}")
-                    break
+            try:
+                # 调用纯函数获取结果
+                result = await self._execute_tool(tool_call)
                 
-                # 处理副作用：记录日志
-                self.thought_logs.append(f"🛠️ 调用工具: {tool_call.name}")
-                self.thought_logs.append(f"📝 参数: {tool_call.arguments}")
-                
+                # 统一处理成功和失败情况
                 if result.success:
                     self.thought_logs.append(f"✅ 工具结果: {result.content[:200]}...")
+                    content = result.content
+                    error = False
                 else:
                     self.thought_logs.append(f"❌ 工具执行失败: {result.error}")
-                
-                # 处理副作用：添加工具消息到 session
-                content = result.content if result.success else f"Error: {result.error}"
-                self.session_memory.add_message(
-                    role="tool",
-                    content=content,
-                    metadata={"tool_call_id": tool_call.id, "tool_name": tool_call.name},
-                )
+                    content = f"Error: {result.error}"
+                    error = True
+            except Exception as e:
+                # 工具执行异常
+                self.thought_logs.append(f"❌ 工具执行异常: {str(e)}")
+                content = f"Error: {str(e)}"
+                error = True
+                # 工具执行异常，停止执行后续工具
+                break
             
-            # 检查是否有工具执行异常
-            if tool_execution_error:
-                # 添加工具错误消息
-                error_content = f"Tool execution error: {str(tool_execution_error)}"
-                self.session_memory.add_message(
-                    role="tool",
-                    content=error_content,
-                    metadata={"error": True},
-                )
-                logger.LOG_DEBUG("[_handle_response] Tool error occurred, will retry LLM call")
-            
-            # 获取更新后的消息并再次调用 LLM
-            messages = self._build_messages()
-            logger.LOG_DEBUG(f"[_handle_response] Sending {len(messages)} messages to LLM")
-            
-            tools_schema = self.get_tools_schema()
-            
-            response = await self.provider.chat_with_tools(
-                messages=messages,
-                tools=tools_schema if tools_schema else None,
-                model=self.model,
+            # 统一添加工具消息到 session
+            self.session_memory.add_message(
+                role="tool",
+                content=content,
+                metadata={"tool_call_id": tool_call.id, "tool_name": tool_call.name, "error": error} if error else {"tool_call_id": tool_call.id, "tool_name": tool_call.name},
             )
             
-            # 添加新的助手消息
-            self.session_memory.add_assistant_message(response.content)
+    
+    async def _call_llm(self, messages: list[Message] | None = None) -> Response:
+        """调用 LLM
+        
+        Args:
+            messages: 可选的预构建消息列表。如果为 None，则从 session 构建。
             
-            # 检查是否达到最大迭代次数
-            if iteration >= self.max_iterations:
-                logger.LOG_DEBUG(f"[_handle_response] Max iterations ({self.max_iterations}) reached")
-
-        return response.content
+        Returns:
+            Response: LLM 的响应对象
+        """
+        # 如果没有提供消息，则从 session 构建
+        if messages is None:
+            messages = self._build_messages()
+        
+        logger.LOG_DEBUG(f"[_call_llm] Sending {len(messages)} messages to LLM")
+        
+        tools_schema = self.get_tools_schema()
+        
+        response = await self.provider.chat_with_tools(
+            messages=messages,
+            tools=tools_schema if tools_schema else None,
+            model=self.model,
+        )
+        
+        # 添加助手消息到 session
+        self.session_memory.add_assistant_message(response.content)
+        
+        # 记录日志
+        self.thought_logs.append(f"🤖 调用 LLM (model: {self.model})...")
+        self.thought_logs.append(f"💬 LLM 回复: {response.content[:100]}...")
+        
+        logger.LOG_DEBUG(f"[_call_llm] Response content length: {len(response.content)}, tool_calls: {len(response.tool_calls) if response.tool_calls else 0}")
+        
+        return response
 
     async def _execute_tool(self, tool_call) -> ToolResult:
         """执行工具调用（纯函数，返回 ToolResult）
@@ -197,11 +200,12 @@ class ReActLoop(Agent):
         tool_name = tool_call.name
         tool_args = tool_call.arguments
 
+        executor = self.tools
         # 执行工具（优先使用 ToolWrapper）
         if self._tool_wrapper:
-            result = await self._tool_wrapper.execute(tool_name, **tool_args)
-        else:
-            result = await self.tools.execute(tool_name, **tool_args)
+            executor = self._tool_wrapper
+        
+        result = await executor.execute(tool_name, **tool_args)
 
         # 直接返回 ToolResult，不做类型转换
         return result
