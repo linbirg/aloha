@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from aloha.providers.base import Message
+from aloha.providers.base import Message, ToolCall
 
 
 @dataclass
@@ -45,14 +45,29 @@ class SessionMemory:
 
     def get_messages(self) -> list[Message]:
         """获取消息列表（用于 LLM 调用）"""
-        return [
-            Message(
+        result = []
+        for m in self.messages:
+            msg = Message(
                 role=m.role,
                 content=m.content,
                 tool_call_id=m.metadata.get("tool_call_id") if m.role == "tool" else None,
             )
-            for m in self.messages
-        ]
+            # 对于 tool 消息，需要设置 name 字段（工具名称）
+            if m.role == "tool" and m.metadata.get("tool_name"):
+                msg.name = m.metadata["tool_name"]
+            # 对于 assistant 消息，如果有 tool_calls 元数据，需要恢复 tool_calls
+            if m.role == "assistant" and m.metadata.get("tool_calls"):
+                tool_calls_data = m.metadata["tool_calls"]
+                msg.tool_calls = [
+                    ToolCall(
+                        id=tc["id"],
+                        name=tc["name"],
+                        arguments=tc.get("arguments", {})
+                    )
+                    for tc in tool_calls_data
+                ]
+            result.append(msg)
+        return result
 
     def clear(self) -> None:
         """清空会话记忆"""

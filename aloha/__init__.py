@@ -6,7 +6,7 @@
 __version__ = "0.1.0"
 
 from aloha.agent import ReActLoop, Agent, SkillsLoader, BaseTool, ToolRegistry
-from aloha.providers import BaseProvider, OpenAIProvider
+from aloha.providers import BaseProvider, OpenAIProvider, MiniMaxProvider
 from aloha.memory import SessionMemory, LongTermMemory
 
 __all__ = [
@@ -14,6 +14,7 @@ __all__ = [
     "Agent",
     "BaseProvider",
     "OpenAIProvider",
+    "MiniMaxProvider",
     "SessionMemory",
     "LongTermMemory",
     "BaseTool",

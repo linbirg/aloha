@@ -1,6 +1,9 @@
 """OpenAI 兼容 Provider 实现
 
 支持 OpenAI、Anthropic、DeepSeek、OpenRouter、MiniMax 等兼容 OpenAI API 的模型。
+
+注意：MiniMax API 对 tool_call_id 有特殊要求，不应在此处进行规范化。
+保持原始 ID 以确保兼容性。
 """
 
 import json
@@ -25,12 +28,6 @@ class OpenAIProvider(BaseProvider):
     ):
         super().__init__(api_key, default_model, base_url, temperature, max_tokens)
 
-        # 调试：打印 API 配置信息
-        # print(f"[Debug] OpenAIProvider initialized:")
-        # print(f"  api_key: {api_key[:20]}..." if len(api_key) > 20 else f"  api_key: {api_key}")
-        # print(f"  base_url: {base_url}")
-        # print(f"  default_model: {default_model}")
-
         # 构建默认请求头，支持 MiniMax 等需要 Bearer Token 的 API
         default_headers = {
             "Authorization": f"Bearer {api_key}"
@@ -51,6 +48,8 @@ class OpenAIProvider(BaseProvider):
         if msg.name:
             result["name"] = msg.name
         if msg.tool_call_id:
+            # 不对 tool_call_id 进行规范化，保持原始值
+            # MiniMax API 需要原始的 tool_call_id
             result["tool_call_id"] = msg.tool_call_id
         return result
 

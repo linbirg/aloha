@@ -95,6 +95,9 @@ class ReActLoop(Agent):
             # 有工具调用，执行工具
             logger.LOG_DEBUG(f"[process] Iteration {iteration}/{self.max_iterations}, tool_calls: {[tc.id for tc in response.tool_calls]}")
             await self._execute_all_tools(response.tool_calls)
+            
+            # 继续循环，再次调用 LLM（处理工具结果）
+            # MiniMaxProvider 已经处理了 tool_call_id 规范化问题
         
         if iteration >= self.max_iterations:
             logger.LOG_DEBUG(f"[process] Max iterations ({self.max_iterations}) reached")
@@ -170,7 +173,7 @@ class ReActLoop(Agent):
         if messages is None:
             messages = self._build_messages()
         
-        logger.LOG_DEBUG(f"[_call_llm] Sending {len(messages)} messages to LLM")
+        logger.LOG_DEBUG(f"[_call_llm] Sending [{messages}] messages to LLM")
         
         tools_schema = self.get_tools_schema()
         
@@ -179,15 +182,21 @@ class ReActLoop(Agent):
             tools=tools_schema if tools_schema else None,
             model=self.model,
         )
-        
-        # 添加助手消息到 session
-        self.session_memory.add_assistant_message(response.content)
+
+        # 添加助手消息到 session（包含 tool_calls 元数据）
+        metadata = {}
+        if response.tool_calls:
+            metadata["tool_calls"] = [
+                {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
+                for tc in response.tool_calls
+            ]
+        self.session_memory.add_assistant_message(response.content, metadata if metadata else None)
         
         # 记录日志
         self.thought_logs.append(f"🤖 调用 LLM (model: {self.model})...")
         self.thought_logs.append(f"💬 LLM 回复: {response.content[:100]}...")
         
-        logger.LOG_DEBUG(f"[_call_llm] Response content length: {len(response.content)}, tool_calls: {len(response.tool_calls) if response.tool_calls else 0}")
+        logger.LOG_DEBUG(f"[_call_llm] Response content: {response.content}, tool_calls: {len(response.tool_calls) if response.tool_calls else 0}")
         
         return response
 

@@ -14,6 +14,8 @@ from aloha import ReActLoop, OpenAIProvider
 from aloha.bus import MessageBus
 from aloha.config import get_config
 from aloha.lib import logger
+from aloha.tools import FileTool, ShellTool, WebTool
+from aloha.security import SecurityConfig, MockApprovalCallback
 
 
 def get_provider() -> OpenAIProvider:
@@ -69,6 +71,24 @@ def chat(model: str | None, system: str | None, prompts_dir: str | None):
         prompts_dir=prompts_dir,
     )
 
+    # 添加系统工具
+    workspace = Path("~/.aloha/workspace").expanduser()
+    agent.add_tool(FileTool(allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]))
+    # 添加 ShellTool，允许 Windows 和 Linux 命令
+    agent.add_tool(ShellTool(
+        allowed_commands=["ls", "dir", "cat", "echo", "grep", "find", "git", "pwd", "cd", "mkdir", "cp", "mv", "head", "tail", "wc", "python", "pip", "uv"]
+    ))
+    agent.add_tool(WebTool())
+
+    # 启用安全审批（开发模式：自动批准所有请求）
+    security_config = SecurityConfig(
+        auto_approve_low_risk=True,
+        approval_callback=MockApprovalCallback(),
+    )
+    from aloha.agent.wrapper import ToolWrapper
+    tool_wrapper = ToolWrapper(agent.tools, security_config, enable_security=True)
+    agent.set_tool_wrapper(tool_wrapper)
+
     logger.LOG_INFO(f"Agent ready. Type 'quit' or 'exit' to end session.")
     logger.LOG_INFO(f"Model: {provider.default_model}")
 
@@ -114,6 +134,23 @@ def say(message: str, model: str | None, prompts_dir: str | None):
         model=model or provider.default_model,
         prompts_dir=prompts_dir,
     )
+
+    # 添加系统工具（与 chat 命令一致）
+    workspace = Path("~/.aloha/workspace").expanduser()
+    agent.add_tool(FileTool(allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]))
+    agent.add_tool(ShellTool(
+        allowed_commands=["ls", "dir", "cat", "echo", "grep", "find", "git", "pwd", "cd", "mkdir", "cp", "mv", "head", "tail", "wc", "python", "pip", "uv"]
+    ))
+    agent.add_tool(WebTool())
+
+    # 启用安全审批
+    security_config = SecurityConfig(
+        auto_approve_low_risk=True,
+        approval_callback=MockApprovalCallback(),
+    )
+    from aloha.agent.wrapper import ToolWrapper
+    tool_wrapper = ToolWrapper(agent.tools, security_config, enable_security=True)
+    agent.set_tool_wrapper(tool_wrapper)
 
     async def run_once():
         response = await agent.process(message)

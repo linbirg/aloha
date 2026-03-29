@@ -2,5 +2,6 @@
 
 from aloha.providers.base import BaseProvider, Message, Response
 from aloha.providers.openai_provider import OpenAIProvider
+from aloha.providers.minimax_provider import MiniMaxProvider
 
-__all__ = ["BaseProvider", "Message", "Response", "OpenAIProvider"]
+__all__ = ["BaseProvider", "Message", "Response", "OpenAIProvider", "MiniMaxProvider"]
