@@ -94,7 +94,7 @@ class ReActLoop(Agent):
             
             # 有工具调用，执行工具
             logger.LOG_DEBUG(f"[process] Iteration {iteration}/{self.max_iterations}, tool_calls: {[tc.id for tc in response.tool_calls]}")
-            await self._execute_all_tools(response.tool_calls)
+            await self._execute_tools(response.tool_calls)
             
             # 继续循环，再次调用 LLM（处理工具结果）
             # MiniMaxProvider 已经处理了 tool_call_id 规范化问题
@@ -121,7 +121,7 @@ class ReActLoop(Agent):
 
         return messages
 
-    async def _execute_all_tools(self, tool_calls) -> None:
+    async def _execute_tools(self, tool_calls) -> None:
         """执行所有工具调用
         
         依次执行每个工具调用，将结果添加工具消息到 session。
