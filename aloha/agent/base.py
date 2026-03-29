@@ -48,3 +48,7 @@ class Agent(ABC):
     def get_tools_schema(self) -> list[dict[str, Any]]:
         """获取工具 schema"""
         return self.tools.get_tools_schema()
+    
+    def list_tools(self) -> list[str]:
+        """列出所有已注册的工具名称"""
+        return self.tools.list_tools()
