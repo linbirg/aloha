@@ -36,10 +36,11 @@ class MiniMaxProvider(OpenAIProvider):
             base_url=base_url,
             temperature=temperature,
             max_tokens=max_tokens,
+            reasoning_split=True,  # MiniMax 启用 reasoning_split 分离思考
         )
         # ID 映射表，确保同一 ID 在整个会话中保持一致
         self._id_map: dict[str, str] = {}
-        logger.LOG_INFO("[MiniMaxProvider] Initialized with ID normalization")
+        logger.LOG_INFO("[MiniMaxProvider] Initialized with ID normalization and reasoning_split=True")
     
     @staticmethod
     def _normalize_tool_call_id(tool_call_id: str) -> str:

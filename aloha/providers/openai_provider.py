@@ -25,8 +25,12 @@ class OpenAIProvider(BaseProvider):
         base_url: str | None = None,
         temperature: float = 0.1,
         max_tokens: int = 8192,
+        reasoning_split: bool = False,  # MiniMax 专用：将思考分离到 reasoning_details
     ):
         super().__init__(api_key, default_model, base_url, temperature, max_tokens)
+        
+        # MiniMax 专用：是否将思考分离到 reasoning_details 字段
+        self.reasoning_split = reasoning_split
 
         # 构建默认请求头，支持 MiniMax 等需要 Bearer Token 的 API
         default_headers = {
@@ -77,6 +81,12 @@ class OpenAIProvider(BaseProvider):
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+
+        # MiniMax 专用：将思考分离到 reasoning_details 字段（仅在非工具调用时启用）
+        # 注意：reasoning_split 和 tools 一起使用可能有兼容性问题
+        if self.reasoning_split and not tools:
+            params["extra_body"] = {"reasoning_split": True}
+            logger.LOG_DEBUG("[OpenAIProvider] Using reasoning_split=True for Interleaved Thinking")
 
         if tools:
             params["tools"] = tools
