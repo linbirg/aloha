@@ -134,10 +134,17 @@ def get_agent():
         enable_security=security_enabled
     )
     
-    # 设置 tool wrapper
+    # 注册工具到 agent（同时支持直接调用和通过 wrapper 调用）
+    for name in registry.list_tools():
+        tool = registry.get(name)
+        if tool:
+            agent.add_tool(tool)
+    
+    # 设置 tool wrapper（用于安全审批）
     agent.set_tool_wrapper(wrapper)
     
     logger.LOG_DEBUG("ReAct agent created successfully")
+    logger.LOG_DEBUG(f"Agent tools: {agent.list_tools()}")
     
     return agent
 
@@ -175,11 +182,22 @@ async def chat(request: ChatRequest):
         logger.LOG_INFO(f"=== Chat Response ===")
         logger.LOG_INFO(f"Response (first 200 chars): {response[:200]}{'...' if len(response) > 200 else ''}")
         
+        # 获取思考日志
+        thought_logs = agent.get_thought_logs()
+        thinking_content = "\n".join(thought_logs) if thought_logs else ""
+        logger.LOG_DEBUG(f"Thought logs count: {len(thought_logs) if thought_logs else 0}")
+        logger.LOG_DEBUG(f"Thinking content: {thinking_content[:200] if thinking_content else 'empty'}...")
+        
+        # Always include thinking field - if empty, use a placeholder to ensure field appears in JSON
+        if not thinking_content:
+            thinking_content = "[No thinking logs available]"
+        
         result = {
             "content": response,
-            "model": current_model
+            "model": current_model,
+            "thinking": thinking_content
         }
-        logger.LOG_DEBUG(f"Returning JSON: {result}")
+        logger.LOG_DEBUG(f"Returning JSON keys: {list(result.keys())}")
         return result
     except Exception as e:
         logger.LOG_FATAL(f"=== Chat Error ===")

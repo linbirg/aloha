@@ -156,7 +156,7 @@ export const useChatStore = defineStore('chat', () => {
         role: 'assistant',
         content: response.content || 'No response',
         timestamp: Date.now(),
-        thinking: response.model ? `Model: ${response.model}` : undefined
+        thinking: response.thinking || undefined
       }
       messages.value.push(assistantMessage)
       

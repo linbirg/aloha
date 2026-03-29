@@ -9,6 +9,7 @@ interface RequestOptions {
 interface ChatResponse {
   content: string
   model?: string
+  thinking?: string
 }
 
 interface ToolExecuteResponse {

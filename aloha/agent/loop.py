@@ -190,15 +190,28 @@ class ReActLoop(Agent):
                 {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
                 for tc in response.tool_calls
             ]
+        
+        # 处理 thinking：优先使用 response.thinking，否则从 content 中提取
+        thinking = response.thinking
+        if not thinking and response.content:
+            # 从 content 中提取 <think>...</think> 标签中的内容
+            import re
+            think_match = re.search(r'<think>(.*?)</think>', response.content, re.DOTALL)
+            if think_match:
+                thinking = think_match.group(1).strip()
+                # 从 content 中移除 thinking 标签，只保留实际回复
+                response.content = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL).strip()
+        
         # 保存 thinking/reasoning_details（M2.7 特性）
-        if response.thinking:
-            metadata["thinking"] = response.thinking
-            logger.LOG_DEBUG(f"[_call_llm] Saved thinking: {response.thinking[:100]}...")
+        if thinking:
+            metadata["thinking"] = thinking
+            logger.LOG_DEBUG(f"[_call_llm] Saved thinking: {thinking[:100]}...")
         self.session_memory.add_assistant_message(response.content, metadata if metadata else None)
         
         # 记录日志
         self.thought_logs.append(f"🤖 调用 LLM (model: {self.model})...")
-        self.thought_logs.append(f"💬 LLM 回复: {response.content[:100]}...")
+        if thinking:
+            self.thought_logs.append(f"💬 LLM 思考: {thinking[:100]}...")
         
         logger.LOG_DEBUG(f"[_call_llm] Response content: {response.content}, tool_calls: {len(response.tool_calls) if response.tool_calls else 0}")
         

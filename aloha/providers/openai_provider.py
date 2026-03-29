@@ -83,7 +83,6 @@ class OpenAIProvider(BaseProvider):
         }
 
         # MiniMax 专用：将思考分离到 reasoning_details 字段（仅在非工具调用时启用）
-        # 注意：reasoning_split 和 tools 一起使用可能有兼容性问题
         if self.reasoning_split and not tools:
             params["extra_body"] = {"reasoning_split": True}
             logger.LOG_DEBUG("[OpenAIProvider] Using reasoning_split=True for Interleaved Thinking")
@@ -93,12 +92,24 @@ class OpenAIProvider(BaseProvider):
 
         resp = await self.client.chat.completions.create(**params)
 
+        # DEBUG: Log the full response JSON (truncated)
+        import json
+        resp_json = resp.model_dump_json(exclude={'usage'})
+        logger.LOG_DEBUG(f"[chat] Raw response (first 500): {resp_json[:500]}")
+        
         choice = resp.choices[0]
         msg = choice.message
+        
+        # Log all message attributes for debugging
+        logger.LOG_DEBUG(f"[chat] Message type: {type(msg)}")
+        logger.LOG_DEBUG(f"[chat] Message attributes: {[attr for attr in dir(msg) if not attr.startswith('_')]}")
+        logger.LOG_DEBUG(f"[chat] Has reasoning_content: {hasattr(msg, 'reasoning_content')}")
+        if hasattr(msg, 'reasoning_content'):
+            logger.LOG_DEBUG(f"[chat] reasoning_content value: {repr(msg.reasoning_content)[:100]}")
 
-        # 提取 thinking (MiniMax 使用 reasoning_details 字段)
-        # 注意：OpenAI 兼容 API 可能返回 thinking 字段
-        thinking = getattr(msg, "reasoning_details", None) or getattr(msg, "thinking", None)
+        # 提取 thinking (MiniMax 使用 reasoning_content 字段)
+        # 注意：MiniMax API 返回 reasoning_content 字段
+        thinking = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning_details", None) or getattr(msg, "thinking", None)
 
         tool_calls: list[ToolCall] | None = None
         if msg.tool_calls:
