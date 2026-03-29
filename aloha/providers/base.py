@@ -13,6 +13,7 @@ class Message:
     name: str | None = None
     tool_call_id: str | None = None
     tool_calls: list[ToolCall] | None = None  # assistant 消息中的工具调用
+    thinking: str | None = None  # MiniMax 的 reasoning_details
 
 
 @dataclass
@@ -31,6 +32,7 @@ class Response:
     model: str | None = None
     usage: dict[str, int] | None = None
     finish_reason: str | None = None
+    thinking: str | None = None  # MiniMax 的 reasoning_details
 
 
 class BaseProvider(ABC):

@@ -12,7 +12,7 @@ import gradio as gr
 
 from aloha import ReActLoop
 from aloha.agent import ToolWrapper
-from aloha.providers import OpenAIProvider
+from aloha.providers import MiniMaxProvider
 from aloha.bus import MessageBus
 from aloha.prompts import PromptLoader
 from aloha.config import get_config
@@ -147,8 +147,8 @@ def create_agent(enable_security: bool = True, approval_callback: GradioApproval
         logger.LOG_WARNING("API key not set, using placeholder")
 
     # 创建 provider
-    logger.LOG_INFO("Creating OpenAIProvider...")
-    provider = OpenAIProvider(
+    logger.LOG_INFO("Creating MiniMaxProvider...")
+    provider = MiniMaxProvider(
         api_key=api_key or "sk-placeholder",
         base_url=base_url,
         default_model=model,

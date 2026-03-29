@@ -51,6 +51,9 @@ class OpenAIProvider(BaseProvider):
             # 不对 tool_call_id 进行规范化，保持原始值
             # MiniMax API 需要原始的 tool_call_id
             result["tool_call_id"] = msg.tool_call_id
+        # 添加 thinking/reasoning_details
+        if msg.thinking:
+            result["reasoning_content"] = msg.thinking
         return result
 
     async def chat(
@@ -83,6 +86,10 @@ class OpenAIProvider(BaseProvider):
         choice = resp.choices[0]
         msg = choice.message
 
+        # 提取 thinking (MiniMax 使用 reasoning_details 字段)
+        # 注意：OpenAI 兼容 API 可能返回 thinking 字段
+        thinking = getattr(msg, "reasoning_details", None) or getattr(msg, "thinking", None)
+
         tool_calls: list[ToolCall] | None = None
         if msg.tool_calls:
             tool_calls = [
@@ -104,6 +111,7 @@ class OpenAIProvider(BaseProvider):
                 "total_tokens": resp.usage.total_tokens if resp.usage else 0,
             },
             finish_reason=choice.finish_reason,
+            thinking=thinking,
         )
 
     async def chat_with_tools(

@@ -66,6 +66,9 @@ class SessionMemory:
                     )
                     for tc in tool_calls_data
                 ]
+            # 恢复 thinking/reasoning_details
+            if m.role == "assistant" and m.metadata.get("thinking"):
+                msg.thinking = m.metadata["thinking"]
             result.append(msg)
         return result
 

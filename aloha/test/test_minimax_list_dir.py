@@ -38,8 +38,8 @@ async def main():
         max_iterations=3,
     )
     
-    # 允许 ls, dir 命令列出文件
-    agent.add_tool(ShellTool(allowed_commands=["ls", "dir", "echo", "pwd"]))
+    # 允许 ls 命令 - 默认白名单已包含 ls
+    agent.add_tool(ShellTool())
     
     security_config = SecurityConfig(
         auto_approve_low_risk=True,

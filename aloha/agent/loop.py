@@ -183,13 +183,17 @@ class ReActLoop(Agent):
             model=self.model,
         )
 
-        # 添加助手消息到 session（包含 tool_calls 元数据）
+        # 添加助手消息到 session（包含 tool_calls 和 thinking 元数据）
         metadata = {}
         if response.tool_calls:
             metadata["tool_calls"] = [
                 {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
                 for tc in response.tool_calls
             ]
+        # 保存 thinking/reasoning_details（M2.7 特性）
+        if response.thinking:
+            metadata["thinking"] = response.thinking
+            logger.LOG_DEBUG(f"[_call_llm] Saved thinking: {response.thinking[:100]}...")
         self.session_memory.add_assistant_message(response.content, metadata if metadata else None)
         
         # 记录日志

@@ -10,7 +10,8 @@ from pathlib import Path
 
 import click
 
-from aloha import ReActLoop, OpenAIProvider
+from aloha import ReActLoop
+from aloha.providers import MiniMaxProvider
 from aloha.bus import MessageBus
 from aloha.config import get_config
 from aloha.lib import logger
@@ -18,7 +19,7 @@ from aloha.tools import FileTool, ShellTool, WebTool
 from aloha.security import SecurityConfig, MockApprovalCallback
 
 
-def get_provider() -> OpenAIProvider:
+def get_provider() -> MiniMaxProvider:
     """创建 LLM Provider，从配置和 .env 读取"""
     config = get_config()
 
@@ -34,7 +35,7 @@ def get_provider() -> OpenAIProvider:
     logger.LOG_DEBUG(f"Using base_url: {base_url}")
     logger.LOG_DEBUG(f"Using model: {model}")
 
-    return OpenAIProvider(
+    return MiniMaxProvider(
         api_key=api_key or "sk-placeholder",
         base_url=base_url,
         default_model=model,

@@ -77,6 +77,7 @@ class MiniMaxProvider(OpenAIProvider):
         关键处理：
         1. tool 消息的 tool_call_id 需要规范化
         2. assistant 消息的 tool_calls 中的 id 需要规范化
+        3. thinking/reasoning_details 需要完整保留
         """
         result = super()._convert_message(msg)
         
@@ -101,5 +102,10 @@ class MiniMaxProvider(OpenAIProvider):
                 })
             result["tool_calls"] = normalized_tool_calls
             logger.LOG_DEBUG(f"[MiniMaxProvider] Assistant message normalized {len(msg.tool_calls)} tool_calls")
+        
+        # 处理 thinking - MiniMax 使用 reasoning_details 字段
+        if msg.thinking:
+            result["reasoning_content"] = msg.thinking
+            logger.LOG_DEBUG(f"[MiniMaxProvider] Added reasoning_content to message")
         
         return result
