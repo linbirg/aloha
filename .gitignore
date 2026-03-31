@@ -52,3 +52,8 @@ Thumbs.db
 # Node (if any)
 node_modules/
 package-lock.json
+aloha/doc/obsidian/.obsidian/app.json
+aloha/doc/obsidian/.obsidian/appearance.json
+aloha/doc/obsidian/.obsidian/core-plugins.json
+.gitignore
+aloha/doc/obsidian/.obsidian/workspace.json
