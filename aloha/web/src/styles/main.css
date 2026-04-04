@@ -13,10 +13,15 @@
   
   /* Accent Colors */
   --accent-blue: #58a6ff;
+  --accent-blue-hover: #4090e0;
   --accent-green: #3fb950;
+  --accent-green-hover: #36a048;
   --accent-red: #f85149;
+  --accent-red-hover: #d73a3a;
   --accent-orange: #d29922;
+  --accent-orange-hover: #bf8510;
   --accent-purple: #a371f7;
+  --accent-purple-hover: #8957e5;
   
   /* Status Colors */
   --status-success: #3fb950;

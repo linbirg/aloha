@@ -1,10 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import type { Message, ToolExecution, Conversation } from '@/types'
 import { apiClient } from '@/api/client'
 
 const STORAGE_KEY = 'aloha_conversations'
-const CURRENT_CONV_KEY = 'aloha_current_conversation'
 
 export const useChatStore = defineStore('chat', () => {
   // State

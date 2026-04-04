@@ -23,15 +23,25 @@ def get_provider() -> MiniMaxProvider:
     """创建 LLM Provider，从配置和 .env 读取"""
     config = get_config()
 
-    # 优先使用环境变量，其次使用配置文件
-    api_key = os.getenv("OPENAI_API_KEY") or config.providers.openai.api_key if config.providers.openai else ""
+    # 优先使用 MINI_MAX_API 环境变量，其次使用配置文件
+    api_key = (
+        os.getenv("MINI_MAX_API") or config.providers.openai.api_key
+        if config.providers.openai
+        else ""
+    )
     if not api_key:
-        logger.LOG_WARNING("OPENAI_API_KEY not set, using placeholder")
+        logger.LOG_WARNING("MINI_MAX_API not set, using placeholder")
 
-    base_url = os.getenv("OPENAI_BASE_URL") or config.providers.openai.base_url if config.providers.openai else None
+    base_url = (
+        os.getenv("MINI_MAX_BASE_URL") or config.providers.openai.base_url
+        if config.providers.openai
+        else None
+    )
     model = os.getenv("MODEL") or config.agents.defaults.model
 
-    logger.LOG_DEBUG(f"Using api_key: {'***' + api_key[-4:] if len(api_key) > 4 else api_key}")
+    logger.LOG_DEBUG(
+        f"Using api_key: {'***' + api_key[-4:] if len(api_key) > 4 else api_key}"
+    )
     logger.LOG_DEBUG(f"Using base_url: {base_url}")
     logger.LOG_DEBUG(f"Using model: {model}")
 
@@ -74,11 +84,36 @@ def chat(model: str | None, system: str | None, prompts_dir: str | None):
 
     # 添加系统工具
     workspace = Path("~/.aloha/workspace").expanduser()
-    agent.add_tool(FileTool(allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]))
+    agent.add_tool(
+        FileTool(
+            allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]
+        )
+    )
     # 添加 ShellTool，允许 Windows 和 Linux 命令
-    agent.add_tool(ShellTool(
-        allowed_commands=["ls", "dir", "cat", "echo", "grep", "find", "git", "pwd", "cd", "mkdir", "cp", "mv", "head", "tail", "wc", "python", "pip", "uv"]
-    ))
+    agent.add_tool(
+        ShellTool(
+            allowed_commands=[
+                "ls",
+                "dir",
+                "cat",
+                "echo",
+                "grep",
+                "find",
+                "git",
+                "pwd",
+                "cd",
+                "mkdir",
+                "cp",
+                "mv",
+                "head",
+                "tail",
+                "wc",
+                "python",
+                "pip",
+                "uv",
+            ]
+        )
+    )
     agent.add_tool(WebTool())
 
     # 启用安全审批（开发模式：自动批准所有请求）
@@ -87,6 +122,7 @@ def chat(model: str | None, system: str | None, prompts_dir: str | None):
         approval_callback=MockApprovalCallback(),
     )
     from aloha.agent.wrapper import ToolWrapper
+
     tool_wrapper = ToolWrapper(agent.tools, security_config, enable_security=True)
     agent.set_tool_wrapper(tool_wrapper)
 
@@ -138,10 +174,35 @@ def say(message: str, model: str | None, prompts_dir: str | None):
 
     # 添加系统工具（与 chat 命令一致）
     workspace = Path("~/.aloha/workspace").expanduser()
-    agent.add_tool(FileTool(allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]))
-    agent.add_tool(ShellTool(
-        allowed_commands=["ls", "dir", "cat", "echo", "grep", "find", "git", "pwd", "cd", "mkdir", "cp", "mv", "head", "tail", "wc", "python", "pip", "uv"]
-    ))
+    agent.add_tool(
+        FileTool(
+            allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]
+        )
+    )
+    agent.add_tool(
+        ShellTool(
+            allowed_commands=[
+                "ls",
+                "dir",
+                "cat",
+                "echo",
+                "grep",
+                "find",
+                "git",
+                "pwd",
+                "cd",
+                "mkdir",
+                "cp",
+                "mv",
+                "head",
+                "tail",
+                "wc",
+                "python",
+                "pip",
+                "uv",
+            ]
+        )
+    )
     agent.add_tool(WebTool())
 
     # 启用安全审批
@@ -150,6 +211,7 @@ def say(message: str, model: str | None, prompts_dir: str | None):
         approval_callback=MockApprovalCallback(),
     )
     from aloha.agent.wrapper import ToolWrapper
+
     tool_wrapper = ToolWrapper(agent.tools, security_config, enable_security=True)
     agent.set_tool_wrapper(tool_wrapper)
 

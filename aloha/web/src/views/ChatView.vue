@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
+import { useThemeStore } from '@/stores/theme'
 import MessageBubble from '@/components/MessageBubble.vue'
 import ToolApprovalCard from '@/components/ToolApprovalCard.vue'
 import ToolResultCard from '@/components/ToolResultCard.vue'
@@ -8,6 +9,7 @@ import ChatInput from '@/components/ChatInput.vue'
 import ThinkingPanel from '@/components/ThinkingPanel.vue'
 
 const chatStore = useChatStore()
+const themeStore = useThemeStore()
 const messagesContainer = ref<HTMLElement | null>(null)
 
 const scrollToBottom = () => {
@@ -51,6 +53,13 @@ onMounted(() => {
       </div>
       <div class="header-right">
         <span class="model-name">{{ chatStore.currentModel }}</span>
+        <button 
+          class="theme-toggle-btn"
+          @click="themeStore.toggleTheme"
+          :title="themeStore.currentTheme === 'dark' ? '切换到亮色模式' : '切换到深色模式'"
+        >
+          {{ themeStore.currentTheme === 'dark' ? '◐' : '◑' }}
+        </button>
       </div>
     </header>
 
@@ -159,6 +168,26 @@ onMounted(() => {
 .model-name {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent-blue);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(88, 166, 255, 0.25);
+  transform: scale(1.1);
 }
 
 .chat-messages {

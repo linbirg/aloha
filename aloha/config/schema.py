@@ -32,6 +32,7 @@ _load_env()
 
 class ProviderConfig(BaseModel):
     """LLM Provider 配置"""
+
     api_key: str = ""
     base_url: str | None = None
     default_model: str = "gpt-4o-mini"
@@ -41,6 +42,7 @@ class ProviderConfig(BaseModel):
 
 class WebSearchConfig(BaseModel):
     """Web Search 工具配置"""
+
     provider: str = "brave"
     api_key: str = ""
     max_results: int = 5
@@ -48,6 +50,7 @@ class WebSearchConfig(BaseModel):
 
 class ExecToolConfig(BaseModel):
     """执行工具配置"""
+
     enable: bool = True
     timeout: int = 60
     path_append: str = ""
@@ -55,6 +58,7 @@ class ExecToolConfig(BaseModel):
 
 class ToolsConfig(BaseModel):
     """工具配置"""
+
     restrict_to_workspace: bool = False
     web: WebSearchConfig | None = None
     exec_config: ExecToolConfig | None = None
@@ -62,6 +66,7 @@ class ToolsConfig(BaseModel):
 
 class AgentDefaultsConfig(BaseModel):
     """Agent 默认配置"""
+
     workspace: str = "~/.aloha/workspace"
     model: str = "MiniMax-M2.7"
     provider: str = "auto"
@@ -74,11 +79,14 @@ class AgentDefaultsConfig(BaseModel):
 
 class AgentsConfig(BaseModel):
     """Agents 配置"""
+
     defaults: AgentDefaultsConfig = Field(default_factory=AgentDefaultsConfig)
 
 
 class ProvidersConfig(BaseModel):
     """Providers 配置"""
+
+    minimax: ProviderConfig | None = None
     openai: ProviderConfig | None = None
     anthropic: ProviderConfig | None = None
     deepseek: ProviderConfig | None = None
@@ -87,6 +95,7 @@ class ProvidersConfig(BaseModel):
 
 class AlohaConfig(BaseModel):
     """Aloha 完整配置"""
+
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
@@ -117,13 +126,13 @@ _config: AlohaConfig | None = None
 
 def _resolve_env_vars(value: Any) -> Any:
     """递归解析配置值中的环境变量引用
-    
+
     支持格式：
     - "VAR_NAME" -> 从环境变量读取
     - "prefix_${VAR_NAME}_suffix" -> 替换环境变量
     """
     import os
-    
+
     if isinstance(value, str):
         # 检查是否是环境变量引用（如 "MINIMAX_API_KEY"）
         if value.startswith("${") and value.endswith("}"):
@@ -132,10 +141,12 @@ def _resolve_env_vars(value: Any) -> Any:
         # 检查是否包含环境变量引用（如 "prefix_${VAR}_suffix"）
         elif "$" in value:
             import re
+
             def replace_env_var(match):
                 var_name = match.group(1)
                 return os.getenv(var_name, match.group(0))
-            return re.sub(r'\$\{([^}]+)\}', replace_env_var, value)
+
+            return re.sub(r"\$\{([^}]+)\}", replace_env_var, value)
         return value
     elif isinstance(value, dict):
         return {k: _resolve_env_vars(v) for k, v in value.items()}
@@ -148,13 +159,13 @@ def _resolve_config_env_vars(config: AlohaConfig) -> AlohaConfig:
     """解析配置中的环境变量引用"""
     import os
     import json
-    
+
     # 将 config 转换为 dict
     config_dict = config.model_dump()
-    
+
     # 递归解析环境变量
     resolved_dict = _resolve_env_vars(config_dict)
-    
+
     # 重新创建 config 对象
     return AlohaConfig(**resolved_dict)
 
@@ -180,10 +191,10 @@ def get_config() -> AlohaConfig:
                     break
                 except Exception as e:
                     logger.LOG_WARNING(f"Failed to load {config_path}: {e}")
-        
+
         if _config is None:
             _config = AlohaConfig()
-    
+
     return _config
 
 

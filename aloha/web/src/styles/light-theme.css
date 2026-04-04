@@ -1,0 +1,458 @@
+/* Aloha Web UI - Light Theme */
+/* Based on AI/Chatbot Platform Style */
+
+[data-theme="light"] {
+  /* Colors - Background */
+  --bg-primary: #FAFAFA;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F3E8FF;
+  --bg-elevated: #FFFFFF;
+  
+  /* Colors - Border */
+  --border-color: #E9D5FF;
+  --border-hover: #C084FC;
+  
+  /* Colors - Text */
+  --text-primary: #1E1B4B;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  
+/* Colors - Accent */
+  --accent-blue: #7C3AED;
+  --accent-blue-hover: #6D28D9;
+  --accent-green: #10B981;
+  --accent-green-hover: #059669;
+  --accent-red: #EF4444;
+  --accent-red-hover: #DC2626;
+  --accent-orange: #F97316;
+  --accent-orange-hover: #EA580C;
+  --accent-purple: #A78BFA;
+  --accent-purple-hover: #8B5CF6;
+  --accent-cyan: #06B6D4;
+  --accent-cyan-hover: #0891B2;
+  
+  /* Colors - Status */
+  --status-success: #10B981;
+  --status-warning: #F97316;
+  --status-error: #EF4444;
+  --status-info: #7C3AED;
+  
+  /* Shadows - Light theme needs stronger shadows */
+  --shadow-sm: 0 1px 2px rgba(124, 58, 237, 0.05);
+  --shadow-md: 0 4px 6px rgba(124, 58, 237, 0.1);
+  --shadow-lg: 0 10px 15px rgba(124, 58, 237, 0.1);
+}
+
+/* Scrollbar - Light Theme */
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color);
+}
+
+/* Button Base - Light Theme */
+[data-theme="light"] .btn {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .btn-primary {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+
+[data-theme="light"] .btn-primary:hover {
+  background: var(--accent-blue-hover);
+}
+
+[data-theme="light"] .btn-success {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: white;
+}
+
+[data-theme="light"] .btn-danger {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  color: white;
+}
+
+/* Input Base - Light Theme */
+[data-theme="light"] .input {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .input:focus {
+  border-color: var(--accent-blue);
+}
+
+[data-theme="light"] .input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Card Base - Light Theme */
+[data-theme="light"] .card {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+/* Badge - Light Theme */
+[data-theme="light"] .badge {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .badge-blue {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent-blue);
+}
+
+[data-theme="light"] .badge-green {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+}
+
+[data-theme="light"] .badge-red {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+[data-theme="light"] .badge-orange {
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--accent-orange);
+}
+
+/* Sidebar - Light Theme */
+[data-theme="light"] .sidebar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .sidebar-header {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .logo {
+  color: var(--accent-blue);
+}
+
+[data-theme="light"] .new-chat-btn {
+  background: var(--accent-blue);
+  color: white;
+}
+
+[data-theme="light"] .new-chat-btn:hover {
+  background: var(--accent-blue-hover);
+}
+
+[data-theme="light"] .conversation-item:hover {
+  background: var(--bg-tertiary);
+}
+
+[data-theme="light"] .conversation-item.active {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-blue);
+}
+
+[data-theme="light"] .conv-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .conv-meta {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .delete-btn {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .delete-btn:hover {
+  background: var(--accent-red);
+  color: white;
+}
+
+[data-theme="light"] .empty-state {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .sidebar-footer {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .model-label {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .model-name {
+  color: var(--text-secondary);
+}
+
+/* Chat View - Light Theme */
+[data-theme="light"] .chat-view {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .chat-header {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .app-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .security-badge {
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--accent-orange);
+}
+
+[data-theme="light"] .model-name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .chat-input-area {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+/* Loading Indicator - Light Theme */
+[data-theme="light"] .loading-dot {
+  background: var(--accent-blue);
+}
+
+/* Message Bubble - Light Theme */
+[data-theme="light"] .message-bubble {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .message-welcome {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .message-tool {
+  background: var(--bg-tertiary);
+  border-left-color: var(--accent-purple);
+}
+
+[data-theme="light"] .message-avatar {
+  background: var(--bg-tertiary);
+}
+
+[data-theme="light"] .thinking-toggle {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .thinking-toggle:hover {
+  color: var(--accent-blue);
+}
+
+[data-theme="light"] .thinking-content {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .content-text {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .tool-badge {
+  background: rgba(167, 139, 250, 0.1);
+  color: var(--accent-purple);
+}
+
+[data-theme="light"] .message-time {
+  color: var(--text-muted);
+}
+
+/* Chat Input - Light Theme */
+[data-theme="light"] .chat-input-wrapper {
+  /* inherits */
+}
+
+[data-theme="light"] .input-container {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .input-container:focus-within {
+  border-color: var(--accent-blue);
+}
+
+[data-theme="light"] .chat-textarea {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .chat-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .send-button {
+  background: var(--accent-blue);
+}
+
+[data-theme="light"] .send-button:hover:not(:disabled) {
+  background: var(--accent-blue-hover);
+}
+
+[data-theme="light"] .input-hint {
+  color: var(--text-muted);
+}
+
+/* Tool Result Card - Light Theme */
+[data-theme="light"] .tool-result-card {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .card-header {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .tool-name {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .status-badge.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--status-success);
+}
+
+[data-theme="light"] .status-badge.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--status-error);
+}
+
+[data-theme="light"] .status-badge.pending {
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--status-warning);
+}
+
+[data-theme="light"] .status-badge.rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--status-error);
+}
+
+[data-theme="light"] .section-label {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .section-label.error-label {
+  color: var(--status-error);
+}
+
+[data-theme="light"] .args-content,
+[data-theme="light"] .result-content {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .error-content {
+  color: var(--status-error);
+  border-color: var(--status-error);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+[data-theme="light"] .card-footer {
+  border-color: var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+[data-theme="light"] .timestamp {
+  color: var(--text-muted);
+}
+
+/* Tool Approval Card - Light Theme */
+[data-theme="light"] .tool-approval-card {
+  background: var(--bg-secondary);
+  border-color: var(--accent-orange);
+}
+
+[data-theme="light"] .tool-approval-card .card-header {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .tool-name {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .tool-id .label {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .tool-id .value {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .arguments-json {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .warning-message {
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--accent-orange);
+}
+
+[data-theme="light"] .pending-indicator {
+  color: var(--accent-orange);
+}
+
+/* Thinking Panel - Light Theme */
+[data-theme="light"] .thinking-panel {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .panel-header:hover {
+  background: var(--bg-tertiary);
+}
+
+[data-theme="light"] .header-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .toggle-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .thinking-text {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+/* Theme Toggle Button - Light Theme */
+[data-theme="light"] .theme-toggle-btn {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent-blue);
+}
+
+[data-theme="light"] .theme-toggle-btn:hover {
+  background: rgba(124, 58, 237, 0.2);
+  transform: scale(1.1);
+}
