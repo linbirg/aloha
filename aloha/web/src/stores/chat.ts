@@ -168,6 +168,11 @@ export const useChatStore = defineStore('chat', () => {
         thinking: response.thinking || undefined
       }
       messages.value.push(assistantMessage)
+
+      // Update currentModel from API response
+      if (response.model) {
+        currentModel.value = response.model
+      }
       
       // Update conversation title from first exchange
       if (currentConversationId.value && messages.value.length === 2) {
