@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Message, ToolExecution, Conversation } from '@/types'
+import type { Message, ToolExecution, Conversation, PendingApproval } from '@/types'
 import { apiClient } from '@/api/client'
 
 const STORAGE_KEY = 'aloha_conversations'
@@ -14,6 +14,7 @@ export const useChatStore = defineStore('chat', () => {
   const error = ref<string | null>(null)
   const currentModel = ref('MiniMax-M2')
   const isSecurityEnabled = ref(true)
+  const ssePendingApprovals = ref<PendingApproval[]>([])
   
   // Conversation management
   const conversations = ref<Conversation[]>([])
@@ -246,6 +247,47 @@ export const useChatStore = defineStore('chat', () => {
     saveConversations()
   }
 
+  function pushApprovalQueue(approval: PendingApproval, position: number, total: number) {
+    approval.queue_position = position
+    approval.queue_total = total
+    approval.status = 'pending'
+    ssePendingApprovals.value.push(approval)
+  }
+
+  function resolveApproval(id: string, decision: string, approvedAt: number | null) {
+    const idx = ssePendingApprovals.value.findIndex((a) => a.id === id)
+    if (idx !== -1) {
+      ssePendingApprovals.value[idx].status = decision as PendingApproval['status']
+      ssePendingApprovals.value[idx].approved_at = approvedAt ?? undefined
+      ssePendingApprovals.value.splice(idx, 1)
+    }
+  }
+
+  function updateToolResult(toolCallId: string, success: boolean, content: string) {
+    const execution = toolExecutions.value.find((e) => e.tool_call_id === toolCallId)
+    if (execution) {
+      execution.status = success ? 'completed' : 'failed'
+      execution.result = content
+    }
+  }
+
+  function addMessageFromSSE(message: Message) {
+    messages.value.push(message)
+    saveConversations()
+  }
+
+  async function submitApproval(id: string, decision: 'approved' | 'rejected', reason?: string) {
+    try {
+      await fetch(`/api/approvals/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, reason }),
+      })
+    } catch (err) {
+      console.error('Failed to submit approval:', err)
+    }
+  }
+
   return {
     // State
     messages,
@@ -259,6 +301,7 @@ export const useChatStore = defineStore('chat', () => {
     currentConversationId,
     // Computed
     pendingApprovals,
+    ssePendingApprovals,
     recentMessages,
     currentConversation,
     // Actions
@@ -272,7 +315,12 @@ export const useChatStore = defineStore('chat', () => {
     rejectTool,
     clearMessages,
     loadConversations,
-    saveConversations
+    saveConversations,
+    pushApprovalQueue,
+    resolveApproval,
+    updateToolResult,
+    addMessageFromSSE,
+    submitApproval
   }
 })
 

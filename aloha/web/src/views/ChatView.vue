@@ -2,6 +2,8 @@
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useThemeStore } from '@/stores/theme'
+import { useEventStore } from '@/stores/events'
+import { useApprovalEvents } from '@/composables/useApprovalEvents'
 import MessageBubble from '@/components/MessageBubble.vue'
 import ToolApprovalCard from '@/components/ToolApprovalCard.vue'
 import ToolResultCard from '@/components/ToolResultCard.vue'
@@ -10,6 +12,8 @@ import ThinkingPanel from '@/components/ThinkingPanel.vue'
 
 const chatStore = useChatStore()
 const themeStore = useThemeStore()
+const eventStore = useEventStore()
+const { setup: setupApprovalEvents } = useApprovalEvents()
 const messagesContainer = ref<HTMLElement | null>(null)
 
 const scrollToBottom = () => {
@@ -20,7 +24,6 @@ const scrollToBottom = () => {
   })
 }
 
-// Auto scroll when messages change
 watch(() => chatStore.messages.length, scrollToBottom)
 
 const handleSend = async (message: string) => {
@@ -28,16 +31,19 @@ const handleSend = async (message: string) => {
   scrollToBottom()
 }
 
-const handleApprove = async (toolExecutionId: string) => {
-  await chatStore.approveTool(toolExecutionId)
+const handleApprove = async (id: string) => {
+  await chatStore.submitApproval(id, 'approved')
 }
 
-const handleReject = async (toolExecutionId: string) => {
-  await chatStore.rejectTool(toolExecutionId)
+const handleReject = async (id: string) => {
+  await chatStore.submitApproval(id, 'rejected')
 }
 
 onMounted(() => {
   chatStore.init()
+  setupApprovalEvents()
+  const sessionId = chatStore.currentConversationId || `session-${Date.now()}`
+  eventStore.connect(sessionId)
 })
 </script>
 

@@ -4,19 +4,28 @@
 """
 
 import asyncio
-from aloha.security.policy import Permission, RiskLevel, SecurityConfig, ApprovalCallback
+from aloha.security.policy import (
+    Permission,
+    RiskLevel,
+    SecurityConfig,
+    ApprovalCallback,
+)
 
 
 class Approver:
     """审批工作流
 
     处理权限请求的审批。根据配置自动批准低风险请求，
-    或通过回调请求用户审批。
+    或通过回调请求用户审批，或通过 ApprovalManager 异步等待。
     """
 
     def __init__(self, config: SecurityConfig):
         self.config = config
         self._pending_requests: dict[str, asyncio.Future[bool]] = {}
+        self._approval_manager = None
+
+    def set_approval_manager(self, manager) -> None:
+        self._approval_manager = manager
 
     async def request(self, permission: Permission) -> bool:
         """请求审批
@@ -27,19 +36,30 @@ class Approver:
         Returns:
             是否批准
         """
-        # 低风险且配置允许自动通过
         if permission.risk_level == RiskLevel.LOW and self.config.auto_approve_low_risk:
             return True
 
-        # 使用回调请求用户审批
+        if self._approval_manager:
+            from aloha.agent.events import ApprovalRequest
+
+            request = ApprovalRequest(
+                id=permission.id,
+                tool_name=permission.tool,
+                action=permission.action,
+                arguments=permission.metadata or {},
+                risk_level=permission.risk_level,
+                description=f"{permission.tool}: {permission.resource}",
+                resource=permission.resource,
+            )
+            await self._approval_manager.enqueue(request)
+            return await self._approval_manager.wait(request.id)
+
         if self.config.approval_callback:
             try:
                 return await self.config.approval_callback.request_approval(permission)
-            except Exception as e:
-                # 审批回调失败时拒绝
+            except Exception:
                 return False
 
-        # 没有回调时，默认拒绝（安全优先）
         return False
 
     async def request_with_blocking(
@@ -64,7 +84,9 @@ class Approver:
         if self.config.approval_callback:
             try:
                 # 尝试使用回调，如果回调支持超时则使用
-                if hasattr(self.config.approval_callback, "request_approval_with_timeout"):
+                if hasattr(
+                    self.config.approval_callback, "request_approval_with_timeout"
+                ):
                     return await self.config.approval_callback.request_approval_with_timeout(
                         permission, timeout
                     )

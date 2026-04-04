@@ -89,3 +89,20 @@ export interface AppState {
   securityEnabled: boolean
   currentModel: string
 }
+
+export interface PendingApproval {
+  id: string
+  tool_name: string
+  action: string
+  arguments: Record<string, unknown>
+  risk_level: string
+  risk_color: string
+  description: string
+  resource: string
+  timeout: number
+  queue_position: number
+  queue_total: number
+  status: 'pending' | 'approved' | 'rejected' | 'timeout'
+  approved_at?: number
+  reason?: string
+}

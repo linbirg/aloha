@@ -3,6 +3,7 @@ Aloha Web API Service
 FastAPI backend for Aloha Web UI
 """
 
+import asyncio
 import os
 import traceback
 from contextlib import asynccontextmanager
@@ -340,6 +341,175 @@ async def get_tools():
     agent = get_agent()
     tools = agent.list_tools() if hasattr(agent, "list_tools") else []
     return {"tools": tools}
+
+
+from fastapi.responses import StreamingResponse
+from aloha.web.service.events import get_event_manager
+from aloha.agent.approval_manager import ApprovalManager
+import time
+import json
+import uuid
+
+_event_manager = get_event_manager()
+_approval_manager: ApprovalManager | None = None
+_active_sessions: dict[str, dict] = {}
+
+
+def get_approval_manager() -> ApprovalManager:
+    global _approval_manager
+    if _approval_manager is None:
+        _approval_manager = ApprovalManager(default_timeout=300)
+    return _approval_manager
+
+
+@app.get("/api/events")
+async def sse_events(session_id: str):
+    async def event_generator():
+        queue: asyncio.Queue[str] = asyncio.Queue()
+        _event_manager.add_client(session_id, queue)
+
+        last_heartbeat = time.time()
+
+        try:
+            _active_sessions[session_id] = {"queue": queue, "connected": True}
+            while True:
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=2)
+                    yield message
+                    last_heartbeat = time.time()
+                except asyncio.TimeoutError:
+                    if time.time() - last_heartbeat >= 2:
+                        yield f"event: heartbeat\ndata: {json.dumps({'timestamp': int(time.time() * 1000)})}\n\n"
+                        last_heartbeat = time.time()
+        except asyncio.CancelledError:
+            pass
+        finally:
+            _event_manager.remove_client(session_id, queue)
+            _active_sessions.pop(session_id, None)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+class ApprovalSubmitRequest(BaseModel):
+    decision: str
+    reason: str | None = None
+
+
+@app.post("/api/approvals/{approval_id}")
+async def submit_approval(approval_id: str, body: ApprovalSubmitRequest):
+    manager = get_approval_manager()
+    event_manager = get_event_manager()
+
+    resolved = manager.resolve(approval_id, body.decision, body.reason)
+
+    session_id = _find_session_for_approval(approval_id)
+    if session_id:
+        await event_manager.publish(
+            session_id,
+            "approval_completed",
+            {
+                "approval_id": approval_id,
+                "decision": body.decision,
+                "reason": body.reason,
+                "approved_at": int(time.time() * 1000),
+            },
+        )
+        if body.decision == "rejected":
+            await event_manager.publish(session_id, "error", {"message": "工具被拒绝"})
+
+    return {"success": True, "already_resolved": resolved}
+
+
+def _find_session_for_approval(approval_id: str) -> str | None:
+    for session_id, session_data in _active_sessions.items():
+        if session_data.get("connected"):
+            return session_id
+    return None
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(request: ChatRequest, session_id: str = ""):
+    sid = session_id or str(uuid.uuid4())
+    manager = get_approval_manager()
+
+    from aloha.agent.loop import StreamingReActLoop
+    from pathlib import Path
+
+    provider = get_provider()
+    workspace = Path("~/.aloha/workspace").expanduser()
+
+    registry = ToolRegistry()
+    registry.register(
+        FileTool(
+            allowed_read_dirs=[workspace], allowed_write_dirs=[workspace / "output"]
+        )
+    )
+    registry.register(
+        ShellTool(
+            allowed_commands=[
+                "ls",
+                "dir",
+                "cat",
+                "echo",
+                "grep",
+                "find",
+                "git",
+                "pwd",
+                "cd",
+                "mkdir",
+                "cp",
+                "mv",
+                "head",
+                "tail",
+                "wc",
+                "python",
+                "pip",
+                "uv",
+            ]
+        )
+    )
+    registry.register(WebTool())
+
+    security_config = SecurityConfig(
+        auto_approve_low_risk=True,
+        approval_callback=MockApprovalCallback(),
+    )
+    wrapper = ToolWrapper(
+        registry=registry, config=security_config, enable_security=security_enabled
+    )
+    wrapper.approver.set_approval_manager(manager)
+
+    bus = MessageBus()
+    loop = StreamingReActLoop(
+        event_manager=_event_manager,
+        approval_manager=manager,
+        session_id=sid,
+        bus=bus,
+        provider=provider,
+        workspace=workspace,
+        model=provider.default_model,
+        enable_security=security_enabled,
+    )
+    for name in registry.list_tools():
+        tool = registry.get(name)
+        if tool:
+            loop.add_tool(tool)
+    loop.set_tool_wrapper(wrapper)
+
+    result = await loop.process_streaming(request.message)
+    return {
+        "session_id": sid,
+        "content": result["content"],
+        "approved": result["approved"],
+    }
 
 
 if __name__ == "__main__":

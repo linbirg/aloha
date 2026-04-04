@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ToolExecution } from '@/types'
+import type { ToolExecution, PendingApproval } from '@/types'
+
+type ApprovalItem = ToolExecution | PendingApproval
 
 interface Props {
-  execution: ToolExecution
+  execution: ApprovalItem
 }
 
 const props = defineProps<Props>()
@@ -14,18 +16,20 @@ const emit = defineEmits<{
 }>()
 
 const formattedArgs = computed(() => {
+  const args = props.execution.arguments
   try {
-    return JSON.stringify(props.execution.arguments, null, 2)
+    return JSON.stringify(args, null, 2)
   } catch {
-    return String(props.execution.arguments)
+    return String(args)
   }
 })
 
-const riskLabel = computed(() => {
-  // Default risk based on tool type
+const riskLevel = computed(() => {
+  const lvl = (props.execution as PendingApproval).risk_level
+  if (lvl) return lvl
   const toolRiskMap: Record<string, string> = {
     'shell': 'high',
-    'bash': 'high', 
+    'bash': 'high',
     'exec': 'high',
     'read_file': 'medium',
     'write_file': 'high',
@@ -41,7 +45,32 @@ const riskColor = computed(() => {
     'medium': 'var(--accent-orange)',
     'high': 'var(--accent-red)'
   }
-  return colors[riskLabel.value] || colors.medium
+  return colors[riskLevel.value] || colors.medium
+})
+
+const riskColorFromProp = computed(() => {
+  return (props.execution as PendingApproval).risk_color || riskColor.value
+})
+
+const statusText = computed(() => {
+  const status = (props.execution as PendingApproval).status
+  if (status === 'pending') return '⏳ 待确认'
+  if (status === 'approved') return '✅ 已批准'
+  if (status === 'rejected') return '✕ 已拒绝'
+  if (status === 'timeout') return '⏱️ 已超时'
+  return '⏳ 待确认'
+})
+
+const resource = computed(() => {
+  return (props.execution as PendingApproval).resource || ''
+})
+
+const queueInfo = computed(() => {
+  const approval = props.execution as PendingApproval
+  if (approval.queue_total > 1) {
+    return `(${approval.queue_position}/${approval.queue_total})`
+  }
+  return ''
 })
 
 const handleApprove = () => emit('approve', props.execution.id)
@@ -57,18 +86,19 @@ const handleReject = () => emit('reject', props.execution.id)
         <span class="tool-name">{{ execution.tool_name }}</span>
         <span 
           class="risk-badge" 
-          :style="{ color: riskColor, borderColor: riskColor }"
+          :style="{ color: riskColorFromProp, borderColor: riskColorFromProp }"
         >
-          {{ riskLabel.toUpperCase() }} 风险
+          {{ riskLevel.toUpperCase() }} 风险
         </span>
+        <span v-if="queueInfo" class="queue-badge">{{ queueInfo }}</span>
       </div>
-      <div class="pending-indicator">⏳ 待确认</div>
+      <div class="pending-indicator">{{ statusText }}</div>
     </div>
 
-    <!-- Tool Call ID -->
-    <div class="tool-id">
-      <span class="label">调用ID:</span>
-      <code class="value">{{ execution.tool_call_id }}</code>
+    <!-- Resource -->
+    <div v-if="resource" class="resource-info">
+      <span class="label">资源:</span>
+      <code class="value">{{ resource }}</code>
     </div>
 
     <!-- Arguments -->
@@ -84,7 +114,7 @@ const handleReject = () => emit('reject', props.execution.id)
     </div>
 
     <!-- Action Buttons -->
-    <div class="action-buttons">
+    <div class="action-buttons" v-if="(execution as PendingApproval).status === 'pending'">
       <button 
         class="btn btn-danger reject-btn"
         @click="handleReject"
@@ -156,6 +186,15 @@ const handleReject = () => emit('reject', props.execution.id)
   width: fit-content;
 }
 
+.queue-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent-blue);
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
 .pending-indicator {
   font-size: 14px;
   color: var(--accent-orange);
@@ -174,6 +213,26 @@ const handleReject = () => emit('reject', props.execution.id)
 }
 
 .tool-id .value {
+  font-family: monospace;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.resource-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  font-size: 12px;
+}
+
+.resource-info .label {
+  color: var(--text-secondary);
+}
+
+.resource-info .value {
   font-family: monospace;
   color: var(--text-muted);
   background: var(--bg-tertiary);
