@@ -42,6 +42,19 @@ cd aloha && pytest --cov=aloha --cov-report=term-missing
 - **中文 docstrings** — 所有模块/类/函数的 docstrings 使用简体中文
 - **英文 inline 注释** — 仅在混用中文会破坏可读性时使用
 
+- 遵循 PEP 8 + 项目目录结构约定
+- DRY — 无重复代码，无魔法字符串/数字
+- Convention Over Configuration（COC）-约定大于配置 — 遵循项目既定的目录结构、命名规范，减少显式配置
+- KISS-Keep It Simple, Stupid — 保持简单，优先用最直接的方案
+- YAGNI-You Aren't Gonna Need It — 不做过度设计，不要为"将来可能用到"添加代码
+- snake_case 命名，无缩写
+- 类/异常：PascalCase + AppError 基类
+- 导入顺序：标准库 → 第三方 → 本地模块
+- 分层清晰：views → services → models/repositories
+- EAFP 错误处理，自定义异常继承 AppError
+- 使用 Pydantic 做输入校验和序列化
+- 单元测试用 pytest，测试文件在 tests/ 目录
+
 ### 导入顺序（用空行分隔）
 
 1. 标准库 (`from abc import ABC, abstractmethod`)

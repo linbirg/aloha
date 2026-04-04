@@ -14,13 +14,20 @@ class MockProvider(OpenAIProvider):
     """Mock Provider 用于测试"""
 
     def __init__(self):
-        # 不调用父类初始化，避免网络请求
-        self.api_key = "test-key"
-        self.default_model = "gpt-4o-mini"
-        self.base_url = None
-        self.temperature = 0.1
-        self.max_tokens = 8192
+        super().__init__(
+            api_key="test-key",
+            default_model="gpt-4o-mini",
+            base_url=None,
+            temperature=0.1,
+            max_tokens=8192,
+        )
         self.client = MagicMock()
+
+    def convert_message(self, msg: Message) -> dict:
+        return super().convert_message(msg)
+
+    def extract_thinking(self, raw_msg) -> str | None:
+        return super().extract_thinking(raw_msg)
 
     async def chat(
         self,
@@ -120,6 +127,7 @@ class TestTools:
         registry.register(tool)
 
         import asyncio
+
         result = asyncio.run(registry.execute("echo", text="Hello"))
 
         assert result.success is True

@@ -1,9 +1,7 @@
 """OpenAI 兼容 Provider 实现
 
-支持 OpenAI、Anthropic、DeepSeek、OpenRouter、MiniMax 等兼容 OpenAI API 的模型。
-
-注意：MiniMax API 对 tool_call_id 有特殊要求，不应在此处进行规范化。
-保持原始 ID 以确保兼容性。
+支持 OpenAI、Anthropic、DeepSeek、OpenRouter 等兼容 OpenAI API 的模型。
+纯 OpenAI 兼容实现，不包含任何其他 provider 的特定逻辑。
 """
 
 import json
@@ -16,7 +14,13 @@ from aloha.lib import logger
 
 
 class OpenAIProvider(BaseProvider):
-    """OpenAI 兼容的 LLM Provider"""
+    """OpenAI 兼容的 LLM Provider
+
+    纯 OpenAI 兼容实现：
+    - 不包含 reasoning_split
+    - 不包含 reasoning_content 处理
+    - 不包含 tool_call_id 规范化
+    """
 
     def __init__(
         self,
@@ -25,40 +29,20 @@ class OpenAIProvider(BaseProvider):
         base_url: str | None = None,
         temperature: float = 0.1,
         max_tokens: int = 8192,
-        reasoning_split: bool = False,  # MiniMax 专用：将思考分离到 reasoning_details
     ):
         super().__init__(api_key, default_model, base_url, temperature, max_tokens)
-        
-        # MiniMax 专用：是否将思考分离到 reasoning_details 字段
-        self.reasoning_split = reasoning_split
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
-        # 构建默认请求头，支持 MiniMax 等需要 Bearer Token 的 API
-        default_headers = {
-            "Authorization": f"Bearer {api_key}"
-        }
+    def extract_thinking(self, raw_msg) -> str | None:
+        """提取标准 thinking 字段
 
-        self.client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url,
-            default_headers=default_headers,
-        )
+        Args:
+            raw_msg: API 返回的原始消息对象
 
-    def _convert_message(self, msg: Message) -> dict[str, Any]:
-        """转换 Message 为 API 格式"""
-        result: dict[str, Any] = {
-            "role": msg.role,
-            "content": msg.content,
-        }
-        if msg.name:
-            result["name"] = msg.name
-        if msg.tool_call_id:
-            # 不对 tool_call_id 进行规范化，保持原始值
-            # MiniMax API 需要原始的 tool_call_id
-            result["tool_call_id"] = msg.tool_call_id
-        # 添加 thinking/reasoning_details
-        if msg.thinking:
-            result["reasoning_content"] = msg.thinking
-        return result
+        Returns:
+            str | None: thinking 内容
+        """
+        return getattr(raw_msg, "thinking", None)
 
     async def chat(
         self,
@@ -68,12 +52,23 @@ class OpenAIProvider(BaseProvider):
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
     ) -> Response:
-        """发送聊天请求"""
+        """发送聊天请求
+
+        Args:
+            messages: 消息列表
+            model: 模型名称
+            temperature: 温度参数
+            max_tokens: 最大 token 数
+            tools: 工具定义列表
+
+        Returns:
+            Response: LLM 响应
+        """
         model = model or self.default_model
         temperature = temperature or self.temperature
         max_tokens = max_tokens or self.max_tokens
 
-        api_messages = [self._convert_message(m) for m in messages]
+        api_messages = [self.convert_message(m) for m in messages]
 
         params: dict[str, Any] = {
             "model": model,
@@ -82,34 +77,19 @@ class OpenAIProvider(BaseProvider):
             "max_tokens": max_tokens,
         }
 
-        # MiniMax 专用：将思考分离到 reasoning_details 字段（仅在非工具调用时启用）
-        if self.reasoning_split and not tools:
-            params["extra_body"] = {"reasoning_split": True}
-            logger.LOG_DEBUG("[OpenAIProvider] Using reasoning_split=True for Interleaved Thinking")
-
         if tools:
             params["tools"] = tools
 
         resp = await self.client.chat.completions.create(**params)
 
-        # DEBUG: Log the full response JSON (truncated)
-        import json
-        resp_json = resp.model_dump_json(exclude={'usage'})
-        logger.LOG_DEBUG(f"[chat] Raw response (first 500): {resp_json[:500]}")
-        
+        logger.LOG_DEBUG(
+            f"[chat] Raw response (first 500): {resp.model_dump_json(exclude={'usage'})[:500]}"
+        )
+
         choice = resp.choices[0]
         msg = choice.message
-        
-        # Log all message attributes for debugging
-        logger.LOG_DEBUG(f"[chat] Message type: {type(msg)}")
-        logger.LOG_DEBUG(f"[chat] Message attributes: {[attr for attr in dir(msg) if not attr.startswith('_')]}")
-        logger.LOG_DEBUG(f"[chat] Has reasoning_content: {hasattr(msg, 'reasoning_content')}")
-        if hasattr(msg, 'reasoning_content'):
-            logger.LOG_DEBUG(f"[chat] reasoning_content value: {repr(msg.reasoning_content)[:100]}")
 
-        # 提取 thinking (MiniMax 使用 reasoning_content 字段)
-        # 注意：MiniMax API 返回 reasoning_content 字段
-        thinking = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning_details", None) or getattr(msg, "thinking", None)
+        thinking = self.extract_thinking(msg)
 
         tool_calls: list[ToolCall] | None = None
         if msg.tool_calls:
@@ -141,5 +121,14 @@ class OpenAIProvider(BaseProvider):
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
     ) -> Response:
-        """使用工具调用发送聊天请求"""
+        """使用工具调用发送聊天请求
+
+        Args:
+            messages: 消息列表
+            tools: 工具定义列表
+            model: 模型名称
+
+        Returns:
+            Response: LLM 响应
+        """
         return await self.chat(messages, model=model, tools=tools)
