@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useChatStore } from '@/stores/chat'
 
 const chatStore = useChatStore()
+
+const editingId = ref<string | null>(null)
+const editingTitle = ref('')
 
 const formattedConversations = computed(() => {
   const convs = chatStore.conversations || []
@@ -17,15 +20,10 @@ function formatDate(timestamp: number): string {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   
-  // Less than 1 minute
   if (diff < 60000) return '刚刚'
-  // Less than 1 hour
   if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
-  // Less than 24 hours
   if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
-  // Less than 7 days
   if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
-  // Otherwise show date
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
@@ -34,13 +32,41 @@ function handleNewChat() {
 }
 
 function handleSelectConversation(id: string) {
-  chatStore.switchConversation(id)
+  if (editingId.value !== id) {
+    chatStore.switchConversation(id)
+  }
 }
 
 function handleDeleteConversation(id: string, event: Event) {
   event.stopPropagation()
   if (confirm('确定要删除这个对话吗？')) {
     chatStore.deleteConversation(id)
+  }
+}
+
+function startEdit(id: string, currentTitle: string, event: Event) {
+  event.stopPropagation()
+  editingId.value = id
+  editingTitle.value = currentTitle
+}
+
+function cancelEdit() {
+  editingId.value = null
+  editingTitle.value = ''
+}
+
+function saveEdit(id: string) {
+  if (editingTitle.value.trim()) {
+    chatStore.renameConversation(id, editingTitle.value.trim())
+  }
+  cancelEdit()
+}
+
+function handleEditKeydown(id: string, event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    saveEdit(id)
+  } else if (event.key === 'Escape') {
+    cancelEdit()
   }
 }
 </script>
@@ -64,16 +90,39 @@ function handleDeleteConversation(id: string, event: Event) {
         @click="handleSelectConversation(conv.id)"
       >
         <div class="conv-content">
-          <div class="conv-title">{{ conv.title }}</div>
-          <div class="conv-meta">{{ conv.formattedDate }}</div>
+          <template v-if="editingId === conv.id">
+            <input 
+              v-model="editingTitle"
+              class="edit-input"
+              @blur="saveEdit(conv.id)"
+              @keydown="handleEditKeydown(conv.id, $event)"
+              @click.stop
+              ref="editInput"
+              autofocus
+            />
+          </template>
+          <template v-else>
+            <div class="conv-title">{{ conv.title }}</div>
+            <div class="conv-meta">{{ conv.formattedDate }}</div>
+          </template>
         </div>
-        <button 
-          class="delete-btn"
-          @click="handleDeleteConversation(conv.id, $event)"
-          title="删除对话"
-        >
-          ×
-        </button>
+        <div class="conv-actions">
+          <button 
+            v-if="editingId !== conv.id"
+            class="action-btn edit-btn"
+            @click="startEdit(conv.id, conv.title, $event)"
+            title="重命名"
+          >
+            ✎
+          </button>
+          <button 
+            class="action-btn delete-btn"
+            @click="handleDeleteConversation(conv.id, $event)"
+            title="删除对话"
+          >
+            ×
+          </button>
+        </div>
       </div>
       
       <div v-if="chatStore.conversations.length === 0" class="empty-state">
@@ -183,24 +232,50 @@ function handleDeleteConversation(id: string, event: Event) {
   margin-top: 2px;
 }
 
-.delete-btn {
-  padding: 4px 8px;
+.edit-input {
+  width: 100%;
+  padding: 2px 4px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.conv-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.conversation-item:hover .conv-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  padding: 4px 6px;
   background: transparent;
   color: var(--text-muted);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 16px;
-  opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
+  font-size: 14px;
+  transition: background 0.2s, color 0.2s;
 }
 
-.conversation-item:hover .delete-btn {
-  opacity: 1;
+.action-btn:hover {
+  background: var(--bg-tertiary);
 }
 
 .delete-btn:hover {
-  background: var(--error);
+  background: var(--accent-red);
+  color: white;
+}
+
+.edit-btn:hover {
+  background: var(--accent-blue);
   color: white;
 }
 

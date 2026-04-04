@@ -123,6 +123,16 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // Rename conversation
+  function renameConversation(id: string, newTitle: string) {
+    const conv = conversations.value.find(c => c.id === id)
+    if (conv && newTitle.trim()) {
+      conv.title = newTitle.trim()
+      conv.updatedAt = Date.now()
+      saveConversations()
+    }
+  }
+
   async function sendMessage(content: string) {
     if (!content.trim() || isLoading.value) return
 
@@ -251,6 +261,7 @@ export const useChatStore = defineStore('chat', () => {
     createConversation,
     switchConversation,
     deleteConversation,
+    renameConversation,
     sendMessage,
     approveTool,
     rejectTool,
