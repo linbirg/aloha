@@ -24,3 +24,8 @@ click>=8.0.0         # CLI 框架
 
 # HTTP 客户端支持
 aiohttp>=3.9.0      # 异步 HTTP 客户端，用于 WebTool
+
+# Web 服务依赖
+fastapi>=0.100.0     # Web 框架
+uvicorn>=0.23.0     # ASGI 服务器
+python-dotenv>=1.0.0 # 环境变量管理
