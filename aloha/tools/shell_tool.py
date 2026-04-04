@@ -38,11 +38,11 @@ class ShellTool(BaseTool):
             "mkdir",
             "cp",
             "mv",
+            "rm",
             "head",
             "tail",
             "wc",
         ]
-        print(f"[ShellTool] allowed_commands = {self.allowed_commands}")
         self.blocked_patterns = blocked_patterns or [
             r"rm\s+-rf",
             r"del\s+/[sq]",

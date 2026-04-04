@@ -12,9 +12,10 @@ from typing import Protocol
 
 class RiskLevel(Enum):
     """风险级别"""
-    LOW = "low"       # 自动通过
-    MEDIUM = "medium" # 需要提示
-    HIGH = "high"     # 需要审批
+
+    LOW = "low"  # 自动通过
+    MEDIUM = "medium"  # 需要提示
+    HIGH = "high"  # 需要审批
 
 
 @dataclass
@@ -23,9 +24,10 @@ class Permission:
 
     表示一次工具调用的权限请求。
     """
-    tool: str           # 工具名称 (file, shell, web)
-    action: str         # 操作类型 (read, write, execute)
-    resource: str       # 资源路径
+
+    tool: str  # 工具名称 (file, shell, web)
+    action: str  # 操作类型 (read, write, execute)
+    resource: str  # 资源路径
     risk_level: RiskLevel = RiskLevel.MEDIUM
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: dict | None = None
@@ -48,6 +50,7 @@ class PermissionPolicy:
 
     定义默认风险级别和规则列表。
     """
+
     default_risk_level: RiskLevel = RiskLevel.MEDIUM
     rules: list["PermissionRule"] = field(default_factory=list)
 
@@ -58,6 +61,7 @@ class PermissionRule:
 
     定义特定工具/操作/资源的权限匹配规则。
     """
+
     tool: str
     action: str
     pattern: str  # 正则表达式
@@ -101,7 +105,9 @@ class MockApprovalCallback:
         """自动批准所有请求（开发模式）"""
         return True
 
-    async def request_approval_with_timeout(self, permission: Permission, timeout: float) -> bool:
+    async def request_approval_with_timeout(
+        self, permission: Permission, timeout: float
+    ) -> bool:
         """自动批准所有请求（开发模式）"""
         return True
 
@@ -130,10 +136,31 @@ class SecurityConfig:
 
     # Shell 操作配置
     shell_allowed_commands: list[str] = field(
-        default_factory=lambda: ["ls", "cat", "echo", "grep", "find", "git", "pwd", "cd", "mkdir", "cp", "mv", "head", "tail", "wc"]
+        default_factory=lambda: [
+            "ls",
+            "cat",
+            "echo",
+            "grep",
+            "find",
+            "git",
+            "pwd",
+            "cd",
+            "mkdir",
+            "cp",
+            "mv",
+            "rm",
+            "head",
+            "tail",
+            "wc",
+        ]
     )
     shell_blocked_patterns: list[str] = field(
-        default_factory=lambda: [r"rm\s+-rf", r"del\s+/[sq]", r"format\s+[a-z]:", r">\s*/dev/"]
+        default_factory=lambda: [
+            r"rm\s+-rf",
+            r"del\s+/[sq]",
+            r"format\s+[a-z]:",
+            r">\s*/dev/",
+        ]
     )
 
     # Web 操作配置
