@@ -11,6 +11,7 @@ export const useChatStore = defineStore('chat', () => {
   const isLoading = ref(false)
   const toolExecutions = ref<ToolExecution[]>([])
   const currentThinking = ref<string>('')
+  const isThinkingStreaming = ref(false)
   const error = ref<string | null>(null)
   const currentModel = ref('MiniMax-M2')
   const isSecurityEnabled = ref(true)
@@ -153,6 +154,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading.value = true
     error.value = null
     currentThinking.value = ''
+    isThinkingStreaming.value = false
 
     try {
       const response = await apiClient.chat({
@@ -243,8 +245,23 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
     toolExecutions.value = []
     currentThinking.value = ''
+    isThinkingStreaming.value = false
     error.value = null
     saveConversations()
+  }
+
+  function setThinking(content: string, append: boolean = false) {
+    if (append) {
+      currentThinking.value += content
+      isThinkingStreaming.value = true
+    } else {
+      currentThinking.value = content
+      isThinkingStreaming.value = false
+    }
+  }
+
+  function finalizeThinking() {
+    isThinkingStreaming.value = false
   }
 
   function pushApprovalQueue(approval: PendingApproval, position: number, total: number) {
@@ -294,6 +311,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading,
     toolExecutions,
     currentThinking,
+    isThinkingStreaming,
     error,
     currentModel,
     isSecurityEnabled,
@@ -316,6 +334,8 @@ export const useChatStore = defineStore('chat', () => {
     clearMessages,
     loadConversations,
     saveConversations,
+    setThinking,
+    finalizeThinking,
     pushApprovalQueue,
     resolveApproval,
     updateToolResult,

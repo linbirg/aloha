@@ -54,12 +54,13 @@ export function useApprovalEvents() {
     })
 
     eventStore.addEventListener('thinking', (data) => {
-      chatStore.setThinking(data.content)
+      chatStore.setThinking(data.content, true)
     })
 
     eventStore.addEventListener('message', (data) => {
       chatStore.addMessageFromSSE(data.message)
       chatStore.setLoading(false)
+      chatStore.finalizeThinking()
     })
 
     eventStore.addEventListener('error', (data) => {

@@ -19,7 +19,7 @@ from aloha.providers import MiniMaxProvider
 from aloha.agent.loop import ReActLoop
 from aloha.agent.tools import ToolRegistry
 from aloha.agent.wrapper import ToolWrapper
-from aloha.security import SecurityConfig, MockApprovalCallback
+from aloha.security import SecurityConfig
 from aloha.bus import MessageBus
 from aloha.config import get_config, set_config, AlohaConfig, ProviderConfig
 from aloha.tools import FileTool, ShellTool, WebTool
@@ -205,6 +205,7 @@ def get_agent():
                 "mkdir",
                 "cp",
                 "mv",
+                "rm",
                 "head",
                 "tail",
                 "wc",
@@ -218,10 +219,9 @@ def get_agent():
 
     logger.LOG_DEBUG(f"Registered tools: {registry.list_tools()}")
 
-    # 启用安全审批
     security_config = SecurityConfig(
         auto_approve_low_risk=True,
-        approval_callback=MockApprovalCallback(),
+        approval_callback=None,
     )
 
     # Create tool wrapper with security
@@ -467,6 +467,7 @@ async def chat_stream(request: ChatRequest, session_id: str = ""):
                 "mkdir",
                 "cp",
                 "mv",
+                "rm",
                 "head",
                 "tail",
                 "wc",
@@ -480,7 +481,7 @@ async def chat_stream(request: ChatRequest, session_id: str = ""):
 
     security_config = SecurityConfig(
         auto_approve_low_risk=True,
-        approval_callback=MockApprovalCallback(),
+        approval_callback=None,
     )
     wrapper = ToolWrapper(
         registry=registry, config=security_config, enable_security=security_enabled

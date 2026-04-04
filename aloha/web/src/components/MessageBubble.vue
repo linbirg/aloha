@@ -7,19 +7,16 @@ interface Props {
   messageType?: 'welcome' | 'user' | 'assistant' | 'tool'
   content?: string
   showThinking?: boolean
+  liveThinking?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   messageType: 'assistant',
-  showThinking: false
+  showThinking: false,
+  liveThinking: ''
 })
 
-// 统一消息对象，确保包含所有可选字段
 const message = computed<Message>(() => {
-  console.log('MessageBubble props:', props)
-  console.log('MessageBubble message:', props.message)
-  console.log('MessageBubble content:', props.content)
-  
   if (props.message) {
     return props.message
   }
@@ -35,12 +32,10 @@ const message = computed<Message>(() => {
 })
 
 const isUser = computed(() => {
-  console.log('isUser check:', message.value.role, props.messageType)
   return message.value.role === 'user' || props.messageType === 'user'
 })
 
 const isTool = computed(() => {
-  console.log('isTool check:', message.value.role, props.messageType)
   return message.value.role === 'tool' || props.messageType === 'tool'
 })
 
@@ -48,10 +43,18 @@ const formattedTime = computed(() => {
   const date = new Date(message.value.timestamp)
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 })
+
+const displayThinking = computed(() => {
+  return props.liveThinking || message.value.thinking || ''
+})
+
+const hasThinking = computed(() => {
+  return !!displayThinking.value
+})
 </script>
 
 <template>
-  <div :class="['message-bubble', { 
+  <div :class="['message-bubble', {
     'message-user': isUser,
     'message-assistant': !isUser && !isTool,
     'message-tool': isTool,
@@ -66,22 +69,17 @@ const formattedTime = computed(() => {
 
     <!-- Content -->
     <div class="message-content">
-      <!-- Thinking (collapsible) -->
-      <div v-if="showThinking && message.thinking" class="thinking-section">
-        <details>
-          <summary class="thinking-toggle">
-            <span class="thinking-icon">💭</span>
-            思考过程
-          </summary>
-          <pre class="thinking-content">{{ message.thinking }}</pre>
-        </details>
+      <!-- Thinking (always expanded, dynamic) -->
+      <div v-if="hasThinking && (showThinking || liveThinking)" class="thinking-section">
+        <div class="thinking-header">
+          <span class="thinking-icon">💭</span>
+          <span class="thinking-label">思考中...</span>
+        </div>
+        <pre class="thinking-content">{{ displayThinking }}</pre>
       </div>
 
       <!-- Main content -->
       <div class="content-text">{{ message.content || content }}</div>
-      
-      <!-- Debug info (hidden by default) -->
-      <pre style="display:none">DEBUG: role={{message.role}}, content={{message.content?.substring(0,50)}}, type={{props.messageType}}</pre>
 
       <!-- Tool result indicator -->
       <div v-if="isTool && message.tool_call_id" class="tool-indicator">
@@ -146,35 +144,54 @@ const formattedTime = computed(() => {
 
 .thinking-section {
   margin-bottom: var(--spacing-sm);
+  animation: slideDown 0.2s ease;
 }
 
-.thinking-toggle {
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.thinking-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
   font-size: 12px;
   color: var(--text-secondary);
-  cursor: pointer;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
-  width: fit-content;
+  margin-bottom: var(--spacing-xs);
 }
 
-.thinking-toggle:hover {
-  color: var(--accent-blue);
+.thinking-icon {
+  font-size: 14px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.thinking-label {
+  font-weight: 500;
 }
 
 .thinking-content {
-  margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   font-size: 12px;
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: monospace;
+  font-family: 'SF Mono', Consolas, monospace;
+  line-height: 1.6;
 }
 
 .content-text {

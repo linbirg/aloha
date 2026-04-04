@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useThemeStore } from '@/stores/theme'
 import { useEventStore } from '@/stores/events'
@@ -8,13 +8,17 @@ import MessageBubble from '@/components/MessageBubble.vue'
 import ToolApprovalCard from '@/components/ToolApprovalCard.vue'
 import ToolResultCard from '@/components/ToolResultCard.vue'
 import ChatInput from '@/components/ChatInput.vue'
-import ThinkingPanel from '@/components/ThinkingPanel.vue'
 
 const chatStore = useChatStore()
 const themeStore = useThemeStore()
 const eventStore = useEventStore()
 const { setup: setupApprovalEvents } = useApprovalEvents()
 const messagesContainer = ref<HTMLElement | null>(null)
+
+const lastAssistantMsgId = computed(() => {
+  const assistantMsgs = chatStore.messages.filter((m: any) => m.role === 'assistant')
+  return assistantMsgs[assistantMsgs.length - 1]?.id || ''
+})
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -84,10 +88,20 @@ onMounted(() => {
           <MessageBubble
             :message="msg"
             :show-thinking="true"
+            :live-thinking="msg.id === lastAssistantMsgId && chatStore.isThinkingStreaming ? chatStore.currentThinking : ''"
           />
         </template>
 
-        <!-- Tool Approval Cards -->
+        <!-- Tool Approval Cards (from SSE) -->
+        <ToolApprovalCard
+          v-for="execution in chatStore.ssePendingApprovals"
+          :key="execution.id"
+          :execution="execution"
+          @approve="handleApprove"
+          @reject="handleReject"
+        />
+
+        <!-- Tool Approval Cards (legacy toolExecutions) -->
         <ToolApprovalCard
           v-for="execution in chatStore.pendingApprovals"
           :key="execution.id"
@@ -111,12 +125,6 @@ onMounted(() => {
         </div>
       </div>
     </main>
-
-    <!-- Thinking Panel (expandable) -->
-    <ThinkingPanel
-      v-if="chatStore.currentThinking"
-      :thinking="chatStore.currentThinking"
-    />
 
     <!-- Input Area -->
     <footer class="chat-input-area">

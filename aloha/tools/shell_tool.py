@@ -26,8 +26,29 @@ class ShellTool(BaseTool):
             name="shell",
             description="执行命令行命令",
         )
-        self.allowed_commands = allowed_commands or ["ls", "cat", "echo", "grep", "find", "git", "pwd", "cd", "mkdir", "cp", "mv", "head", "tail", "wc"]
-        self.blocked_patterns = blocked_patterns or [r"rm\s+-rf", r"del\s+/[sq]", r"format\s+[a-z]:", r">\s*/dev/"]
+        self.allowed_commands = allowed_commands or [
+            "ls",
+            "cat",
+            "echo",
+            "grep",
+            "find",
+            "git",
+            "pwd",
+            "cd",
+            "mkdir",
+            "cp",
+            "mv",
+            "head",
+            "tail",
+            "wc",
+        ]
+        print(f"[ShellTool] allowed_commands = {self.allowed_commands}")
+        self.blocked_patterns = blocked_patterns or [
+            r"rm\s+-rf",
+            r"del\s+/[sq]",
+            r"format\s+[a-z]:",
+            r">\s*/dev/",
+        ]
 
     async def execute(self, command: str, timeout: int = 30) -> ToolResult:
         """执行命令"""
@@ -49,7 +70,9 @@ class ShellTool(BaseTool):
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(), timeout=timeout
                 )
-                output = stdout.decode("utf-8", errors="replace") + stderr.decode("utf-8", errors="replace")
+                output = stdout.decode("utf-8", errors="replace") + stderr.decode(
+                    "utf-8", errors="replace"
+                )
 
                 if not output:
                     output = "(empty output)"
@@ -57,12 +80,18 @@ class ShellTool(BaseTool):
                 return ToolResult(
                     success=process.returncode == 0,
                     content=output,
-                    error=None if process.returncode == 0 else f"Exit code: {process.returncode}",
+                    error=None
+                    if process.returncode == 0
+                    else f"Exit code: {process.returncode}",
                 )
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
-                return ToolResult(success=False, content="", error=f"Command timed out after {timeout} seconds")
+                return ToolResult(
+                    success=False,
+                    content="",
+                    error=f"Command timed out after {timeout} seconds",
+                )
         except PermissionError:
             return ToolResult(success=False, content="", error="Permission denied")
         except Exception as e:
@@ -85,6 +114,7 @@ class ShellTool(BaseTool):
 
         # 检查黑名单模式
         import re
+
         for pattern in self.blocked_patterns:
             try:
                 if re.search(pattern, command, re.IGNORECASE):
