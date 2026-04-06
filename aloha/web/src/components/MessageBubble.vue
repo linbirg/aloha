@@ -1,5 +1,5 @@
 j<script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Message } from '@/types'
 
 interface Props {
@@ -51,6 +51,16 @@ const displayThinking = computed(() => {
 const hasThinking = computed(() => {
   return !!displayThinking.value
 })
+
+const isStreaming = computed(() => {
+  return !!props.liveThinking
+})
+
+const isThinkingCollapsed = ref(false)
+
+const toggleThinking = () => {
+  isThinkingCollapsed.value = !isThinkingCollapsed.value
+}
 </script>
 
 <template>
@@ -69,13 +79,18 @@ const hasThinking = computed(() => {
 
     <!-- Content -->
     <div class="message-content">
-      <!-- Thinking (always expanded, dynamic) -->
+      <!-- Thinking (collapsible toggle) -->
       <div v-if="hasThinking && (showThinking || liveThinking)" class="thinking-section">
-        <div class="thinking-header">
-          <span class="thinking-icon">💭</span>
-          <span class="thinking-label">思考中...</span>
+        <div class="thinking-header" @click="toggleThinking">
+          <div class="thinking-header-left">
+            <span class="thinking-icon" :class="{ streaming: isStreaming }">💭</span>
+            <span class="thinking-label">{{ isStreaming ? '思考中...' : '思考' }}</span>
+          </div>
+          <button class="thinking-toggle-btn" :title="isThinkingCollapsed ? '展开' : '折叠'">
+            {{ isThinkingCollapsed ? '▶' : '▼' }}
+          </button>
         </div>
-        <pre class="thinking-content">{{ displayThinking }}</pre>
+        <pre v-show="!isThinkingCollapsed" class="thinking-content">{{ displayThinking }}</pre>
       </div>
 
       <!-- Main content -->
@@ -161,14 +176,40 @@ const hasThinking = computed(() => {
 .thinking-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--spacing-xs);
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: var(--spacing-xs);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+
+.thinking-header:hover {
+  opacity: 0.8;
+}
+
+.thinking-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.thinking-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
 }
 
 .thinking-icon {
   font-size: 14px;
+}
+
+.thinking-icon.streaming {
   animation: pulse 1.5s infinite;
 }
 
