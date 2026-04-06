@@ -9,9 +9,9 @@ description: 全局索引，所有 Wiki 页面的入口
 
 ## 统计
 
-- Raw Sources：16 篇
-- Wiki 页面：46 篇（含 32 个 tags/ 索引页）
-- 编译率：100%
+- Raw Sources：27 篇（含 design/ 目录 10 篇）
+- Wiki 页面：53 篇（含 6 个新增 concepts + 2 个新增 summaries）
+- 编译率：88%（24/27 compiled，4 pending）
 
 ## 实体（entities/）
 
@@ -32,6 +32,12 @@ description: 全局索引，所有 Wiki 页面的入口
 | [[react-streaming]] | ReAct 模式中流式 API 原理，工具调用截断和文本流式输出 |
 | [[memory-system]] | Agent 记忆系统设计，会话/长期/用户建模多层架构 |
 | [[skills-system]] | Skills 行为规范模块，SKILL.md 标准化格式 |
+| [[sse-approval-system]] | SSE 实时审批推送：EventManager + ApprovalManager + 前端 EventSource |
+| [[tool-approval-system]] | 工具审批两层层 Allow List 模式：PermissionChecker + ShellTool |
+| [[session-management-design]] | Session 管理：SQLite 元数据 + 文件系统资源、继承覆盖配置 |
+| [[provider-refactor-plan]] | Provider 重构：MiniMax/OpenAI 解耦，MiniMax 只处理 ID normalization |
+| [[llm-wiki-skill-plan]] | LLM Wiki Skill 五阶段实现：ingest/compile/query/lint/status |
+| [[websocket-approval-plan]] | WebSocket 双向通信方案（SSE 备选）：thinking 推送、批量审批 |
 
 ## 摘要（summaries/）
 
@@ -53,30 +59,31 @@ description: 全局索引，所有 Wiki 页面的入口
 | [[llm-wiki-analysis-deep-dive-summary]] | llm-wiki-analysis-deep-dive.md |
 | [[llm-wiki-claude-code-obsidian-practice-summary]] | llm-wiki-claude-code-obsidian-practice.md |
 | [[llm-wiki-space-economy-karpathy-practice-summary]] | llm-wiki-space-economy-karpathy-practice.md |
+| [[llm-wiki-blog-building-journey-summary]] | llm-wiki-blog-building-journey.md |
 
 ## 标签（tags/）
 
 | 标签 | 页面数 |
 |------|--------|
-| [[tags/agent]] | 7 |
+| [[tags/agent]] | 8 |
 | [[tags/memory]] | 6 |
 | [[tags/loop]] | 4 |
-| [[tags/wiki]] | 5 |
+| [[tags/wiki]] | 6 |
 | [[tags/typescript]] | 4 |
-| [[tags/streaming]] | 2 |
+| [[tags/streaming]] | 3 |
 | [[tags/python]] | 3 |
-| [[tags/skills]] | 4 |
+| [[tags/skills]] | 5 |
 | [[tags/react]] | 3 |
 | [[tags/sqlite]] | 2 |
 | [[tags/fts5]] | 2 |
 | [[tags/framework]] | 3 |
-| [[tags/opencode]] | 2 |
+| [[tags/opencode]] | 3 |
 | [[tags/karpathy]] | 3 |
 | [[tags/workflow]] | 2 |
 | [[tags/sdk]] | 2 |
 | [[tags/jsonl]] | 3 |
-| [[tags/session]] | 3 |
-| [[tags/tool]] | 4 |
+| [[tags/session]] | 4 |
+| [[tags/tool]] | 5 |
 | [[tags/user-model]] | 1 |
 | [[tags/honcho]] | 1 |
 | [[tags/fork]] | 1 |
@@ -90,12 +97,22 @@ description: 全局索引，所有 Wiki 页面的入口
 | [[tags/farzapedia]] | 1 |
 | [[tags/manual]] | 1 |
 | [[tags/practice]] | 1 |
+| [[tags/security]] | 2 |
+| [[tags/design]] | 4 |
+| [[tags/ui]] | 2 |
+| [[tags/provider]] | 1 |
+| [[tags/minimax]] | 1 |
+| [[tags/refactor]] | 1 |
+| [[tags/knowledge-management]] | 2 |
+| [[tags/skill]] | 1 |
 
 ## 研究主题覆盖
 
 | 主题 | 相关实体/概念 |
 |------|--------------|
 | Agent 循环 | [[agent-loop]] [[react-streaming]] [[hermes-agent]] [[mastra]] [[ai-sdk]] |
-| 记忆系统 | [[memory-system]] [[hermes-agent]] [[pi-mono]] |
+| 记忆系统 | [[memory-system]] [[hermes-agent]] [[pi-mono]] [[session-management-design]] |
 | Skills 系统 | [[skills-system]] [[opencode]] [[pi-mono]] |
-| LLM Wiki | [[llm-wiki-pattern]] |
+| LLM Wiki | [[llm-wiki-pattern]] [[llm-wiki-skill-plan]] |
+| 安全审批 | [[tool-approval-system]] [[sse-approval-system]] [[websocket-approval-plan]] |
+| Provider 架构 | [[provider-refactor-plan]] [[opencode]] [[ai-sdk]] |

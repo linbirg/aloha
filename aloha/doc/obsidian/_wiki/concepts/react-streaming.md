@@ -66,7 +66,7 @@ while iteration < max_iterations:
 Aloha 的 ReActLoop 可借鉴：
 1. **thinking/reasoning 回调**：流式输出 reasoning 中间步骤
 2. **tool_progress 回调**：工具执行时实时反馈进度
-3. **预算警告嵌入**：迭代中期在流中嵌入 `[[BUDGET WARNING]]`
+3. **预算警告嵌入**：迭代中期在流中嵌入 "budget warning"
 
 ## 相关链接
 

@@ -67,7 +67,7 @@ Aloha 的 ReActLoop 属于**手动循环**实现（参考 `hermes-agent-loop-ana
 1. **精细迭代控制**：Hermes 的 90 次迭代上限
 2. **并行工具执行**：多个独立工具并行调用
 3. **流式回调**：thinking / tool_progress 实时反馈
-4. **预算警告**：迭代中期嵌入 `[[BUDGET WARNING]]`
+4. **预算警告**：迭代中期嵌入 "budget warning"
 
 ## 相关链接
 

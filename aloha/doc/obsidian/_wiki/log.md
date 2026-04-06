@@ -7,6 +7,18 @@ description: 时间线日志，记录所有 ingest/compile/query/lint 操作
 
 > append-only，按时间倒序
 
+## [2026-04-06] compile + lint（第二次）
+
+**lint 断链修复**：扫描所有 wiki 页面跨引用，发现 2 处 `[[BUDGET WARNING]]` 断链（位于 `agent-loop.md`、`react-streaming.md`），已修复为普通文本。
+
+**compile 新增编译**：
+- 2 篇 pending 摘要：`hermes-agent-loop-analysis-summary`、`llm-wiki-blog-building-journey-summary`
+- 6 篇新概念（来自 `design/` 目录）：`sse-approval-system`、`tool-approval-system`、`session-management-design`、`provider-refactor-plan`、`llm-wiki-skill-plan`、`websocket-approval-plan`
+
+**registry.md 创建**：`design/` 目录 10 篇文档已录入 registry，6 篇标记 compiled，4 篇标记 pending（doc_ 前缀重复版本）。
+
+**index.md 更新**：统计改为 Raw Sources 27 篇、Wiki 页面 53 篇、编译率 88%；新增标签：security、design、ui、provider、minimax、refactor、knowledge-management、skill。
+
 ## [2026-04-06] query 系统化
 
 阶段三实现：
