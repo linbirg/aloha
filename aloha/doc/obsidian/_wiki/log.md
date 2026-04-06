@@ -7,6 +7,25 @@ description: 时间线日志，记录所有 ingest/compile/query/lint 操作
 
 > append-only，按时间倒序
 
+## [2026-04-06] 目录重组 + compile + lint（第三次）
+
+**目录重组**：`sources/` 下散落的 .md 研究文件已迁入 `agent-research/` 子目录；原 `doc/design/` 和 `obsidian/design/` 合并为 `sources/design/`；新增 `winpowershell/`（配置文件，不纳入 registry）。
+
+**registry.md 重建**：路径前缀更新（`agent-research/`、`design/`）；新增 3 篇 pending（`agent-research.md`、`minimax-research.md`、`nanobot-research.md`）；新增 4 篇 pending（`reactloop-test-plan.md`、`security-tools-design.md`、`security-tools-impl-plan.md`、`web-ui-design.md`）；4 篇 doc_ 前缀冲突版本保留为 pending。
+
+**lint**：扫描所有 wiki 跨引用，断链数 0。`[[BUDGET WARNING]]` 和 `[[xxx-analysis]]` 仅出现于 log.md 文字说明中，非真实引用。
+
+**compile 新增摘要**（7 篇）：
+- `agent-research-summary` — Anthropic 双轨 Agent + ClawTeam 多 Agent 编排
+- `minimax-research-summary` — MiniMax tool_call_id 规范化 + reasoning_content
+- `nanobot-research-summary` — Aloha vs NanoBot 对比
+- `reactloop-test-plan-summary` — ReActLoop 测试计划
+- `security-tools-design-summary` — 安全工具三层架构设计
+- `security-tools-impl-plan-summary` — 四阶段实现计划
+- `web-ui-design-summary` — Vue 3 前端设计规格
+
+**index.md 更新**：统计更新为 Raw Sources 35 篇、Wiki 页面 59 篇、编译率 97%；新增标签：nanobot、test、vue；研究主题覆盖新增"多 Agent 系统"。
+
 ## [2026-04-06] compile + lint（第二次）
 
 **lint 断链修复**：扫描所有 wiki 页面跨引用，发现 2 处 `[[BUDGET WARNING]]` 断链（位于 `agent-loop.md`、`react-streaming.md`），已修复为普通文本。

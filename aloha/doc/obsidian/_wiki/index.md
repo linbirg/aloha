@@ -9,9 +9,9 @@ description: 全局索引，所有 Wiki 页面的入口
 
 ## 统计
 
-- Raw Sources：27 篇（含 design/ 目录 10 篇）
-- Wiki 页面：53 篇（含 6 个新增 concepts + 2 个新增 summaries）
-- 编译率：88%（24/27 compiled，4 pending）
+- Raw Sources：35 篇（agent-research/ 21 篇 + design/ 14 篇）
+- Wiki 页面：59 篇（entities/ 5 + concepts/ 11 + summaries/ 31 + tags/ 44）
+- 编译率：97%（34/35 compiled，4 pending 均为 doc_ 前缀冲突版本）
 
 ## 实体（entities/）
 
@@ -43,31 +43,38 @@ description: 全局索引，所有 Wiki 页面的入口
 
 | 页面 | 来源 |
 |------|------|
-| [[ai-sdk-tool-loop-analysis-summary]] | ai-sdk-tool-loop-analysis.md |
-| [[hermes-agent-analysis-summary]] | hermes-agent-analysis.md |
-| [[hermes-agent-fts5-analysis-summary]] | hermes-agent-fts5-analysis.md |
-| [[hermes-agent-loop-analysis-summary]] | hermes-agent-loop-analysis.md |
-| [[hermes-honcho-analysis-summary]] | hermes-honcho-analysis.md |
-| [[hermes-memory-system-analysis-summary]] | hermes-memory-system-analysis.md |
-| [[mastra-analysis-summary]] | mastra-analysis.md |
-| [[mastra-loop-analysis-summary]] | mastra-loop-analysis.md |
-| [[opencode-user-manual-summary]] | opencode-user-manual.md |
-| [[pi-mono-memory-system-code-analysis-summary]] | pi-mono-memory-system-code-analysis.md |
-| [[pi-mono-session-management-analysis-summary]] | pi-mono-session-management-analysis.md |
-| [[pi-mono-skills-analysis-summary]] | pi-mono-skills-analysis.md |
-| [[llm-wiki-karpathy-analysis-summary]] | llm-wiki-karpathy-analysis.md |
-| [[llm-wiki-analysis-deep-dive-summary]] | llm-wiki-analysis-deep-dive.md |
-| [[llm-wiki-claude-code-obsidian-practice-summary]] | llm-wiki-claude-code-obsidian-practice.md |
-| [[llm-wiki-space-economy-karpathy-practice-summary]] | llm-wiki-space-economy-karpathy-practice.md |
-| [[llm-wiki-blog-building-journey-summary]] | llm-wiki-blog-building-journey.md |
+| [[ai-sdk-tool-loop-analysis-summary]] | agent-research/ai-sdk-tool-loop-analysis.md |
+| [[hermes-agent-analysis-summary]] | agent-research/hermes-agent-analysis.md |
+| [[hermes-agent-fts5-analysis-summary]] | agent-research/hermes-agent-fts5-analysis.md |
+| [[hermes-agent-loop-analysis-summary]] | agent-research/hermes-agent-loop-analysis.md |
+| [[hermes-honcho-analysis-summary]] | agent-research/hermes-honcho-analysis.md |
+| [[hermes-memory-system-analysis-summary]] | agent-research/hermes-memory-system-analysis.md |
+| [[llm-wiki-analysis-deep-dive-summary]] | agent-research/llm-wiki-analysis-deep-dive.md |
+| [[llm-wiki-blog-building-journey-summary]] | agent-research/llm-wiki-blog-building-journey.md |
+| [[llm-wiki-claude-code-obsidian-practice-summary]] | agent-research/llm-wiki-claude-code-obsidian-practice.md |
+| [[llm-wiki-karpathy-analysis-summary]] | agent-research/llm-wiki-karpathy-analysis.md |
+| [[llm-wiki-space-economy-karpathy-practice-summary]] | agent-research/llm-wiki-space-economy-karpathy-practice.md |
+| [[mastra-analysis-summary]] | agent-research/mastra-analysis.md |
+| [[mastra-loop-analysis-summary]] | agent-research/mastra-loop-analysis.md |
+| [[opencode-user-manual-summary]] | agent-research/opencode-user-manual.md |
+| [[pi-mono-memory-system-code-analysis-summary]] | agent-research/pi-mono-memory-system-code-analysis.md |
+| [[pi-mono-session-management-analysis-summary]] | agent-research/pi-mono-session-management-analysis.md |
+| [[pi-mono-skills-analysis-summary]] | agent-research/pi-mono-skills-analysis.md |
+| [[agent-research-summary]] | agent-research/agent-research.md |
+| [[minimax-research-summary]] | agent-research/minimax-research.md |
+| [[nanobot-research-summary]] | agent-research/nanobot-research.md |
+| [[reactloop-test-plan-summary]] | design/reactloop-test-plan.md |
+| [[security-tools-design-summary]] | design/security-tools-design.md |
+| [[security-tools-impl-plan-summary]] | design/security-tools-impl-plan.md |
+| [[web-ui-design-summary]] | design/web-ui-design.md |
 
 ## 标签（tags/）
 
 | 标签 | 页面数 |
 |------|--------|
-| [[tags/agent]] | 8 |
+| [[tags/agent]] | 9 |
 | [[tags/memory]] | 6 |
-| [[tags/loop]] | 4 |
+| [[tags/loop]] | 5 |
 | [[tags/wiki]] | 6 |
 | [[tags/typescript]] | 4 |
 | [[tags/streaming]] | 3 |
@@ -83,7 +90,7 @@ description: 全局索引，所有 Wiki 页面的入口
 | [[tags/sdk]] | 2 |
 | [[tags/jsonl]] | 3 |
 | [[tags/session]] | 4 |
-| [[tags/tool]] | 5 |
+| [[tags/tool]] | 6 |
 | [[tags/user-model]] | 1 |
 | [[tags/honcho]] | 1 |
 | [[tags/fork]] | 1 |
@@ -97,14 +104,17 @@ description: 全局索引，所有 Wiki 页面的入口
 | [[tags/farzapedia]] | 1 |
 | [[tags/manual]] | 1 |
 | [[tags/practice]] | 1 |
-| [[tags/security]] | 2 |
-| [[tags/design]] | 4 |
-| [[tags/ui]] | 2 |
+| [[tags/security]] | 3 |
+| [[tags/design]] | 5 |
+| [[tags/ui]] | 3 |
 | [[tags/provider]] | 1 |
 | [[tags/minimax]] | 1 |
 | [[tags/refactor]] | 1 |
 | [[tags/knowledge-management]] | 2 |
 | [[tags/skill]] | 1 |
+| [[tags/nanobot]] | 1 |
+| [[tags/test]] | 1 |
+| [[tags/vue]] | 1 |
 
 ## 研究主题覆盖
 
@@ -115,4 +125,5 @@ description: 全局索引，所有 Wiki 页面的入口
 | Skills 系统 | [[skills-system]] [[opencode]] [[pi-mono]] |
 | LLM Wiki | [[llm-wiki-pattern]] [[llm-wiki-skill-plan]] |
 | 安全审批 | [[tool-approval-system]] [[sse-approval-system]] [[websocket-approval-plan]] |
-| Provider 架构 | [[provider-refactor-plan]] [[opencode]] [[ai-sdk]] |
+| Provider 架构 | [[provider-refactor-plan]] [[opencode]] [[ai-sdk]] [[minimax-research-summary]] |
+| 多 Agent 系统 | [[nanobot-research-summary]] [[agent-research-summary]] |
