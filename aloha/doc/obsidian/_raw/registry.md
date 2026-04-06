@@ -39,3 +39,4 @@ description: 追踪 Raw Sources 编译状态
 | design/doc_session-management-design.md | pending | 2026-04-06 | - |
 | design/doc_provider-refactor-plan.md | pending | 2026-04-06 | - |
 | design/doc_websocket-approval-plan.md | pending | 2026-04-06 | - |
+| design/shell-tool-refactor-plan.md | pending | 2026-04-06 | - |
