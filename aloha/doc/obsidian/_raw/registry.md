@@ -30,3 +30,4 @@ description: 追踪 Raw Sources 的编译状态
 | pi-mono-session-management-analysis.md | compiled | 2026-04-06 | 2026-04-06 |
 | pi-mono-skills-analysis.md | compiled | 2026-04-06 | 2026-04-06 |
 | llm-wiki-usage-log-2026-04-06.md | meta | 2026-04-06 | - |
+| llm-wiki-blog-building-journey.md | meta | 2026-04-06 | - |
