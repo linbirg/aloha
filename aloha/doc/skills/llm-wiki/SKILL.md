@@ -9,7 +9,7 @@ description: LLM Wiki 模式，自动维护 Obsidian 研究资料知识库
 
 ## Wiki 根目录
 
-`/mnt/d/work/linbirg/aloha-agent/aloha/doc/obsidian/`
+在对话中告诉用户 Wiki 根目录的位置（例如 `/path/to/your/obsidian-vault/`）。所有命令均基于此根目录操作。
 
 ## 目录结构
 
